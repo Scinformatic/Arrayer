@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from typing import Literal
 
 
-def matrix_is_rotational(matrix: np.ndarray, tol: float = 1e-8) -> bool:
+def is_rotation(matrix: np.ndarray, tol: float = 1e-8) -> bool:
     """Determine if a matrix is a pure rotation matrix.
 
     A rotation matrix is a square matrix that represents a rotation
@@ -47,10 +47,10 @@ def matrix_is_rotational(matrix: np.ndarray, tol: float = 1e-8) -> bool:
     ----------
     - [Rotation matrix - Wikipedia](https://en.wikipedia.org/wiki/Rotation_matrix)
     """
-    return matrix_is_orthogonal(matrix, tol=tol) and matrix_has_unit_determinant(matrix, tol=tol)
+    return is_orthogonal(matrix, tol=tol) and has_unit_determinant(matrix, tol=tol)
 
 
-def matrix_is_orthogonal(matrix: np.ndarray, tol: float = 1e-8) -> bool:
+def is_orthogonal(matrix: np.ndarray, tol: float = 1e-8) -> bool:
     """Check whether a matrix is orthogonal.
 
     Tests whether the transpose of the matrix multiplied by the matrix
@@ -85,7 +85,7 @@ def matrix_is_orthogonal(matrix: np.ndarray, tol: float = 1e-8) -> bool:
     return np.allclose(matrix.T @ matrix, identity, atol=tol)
 
 
-def matrix_has_unit_determinant(matrix: np.ndarray, tol: float = 1e-8) -> bool:
+def has_unit_determinant(matrix: np.ndarray, tol: float = 1e-8) -> bool:
     """Check whether a matrix has determinant approximately +1.
 
     Used to test if a transformation matrix preserves orientation
