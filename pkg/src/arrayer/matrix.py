@@ -61,7 +61,7 @@ def is_rotation(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
     ----------
     - [Rotation matrix - Wikipedia](https://en.wikipedia.org/wiki/Rotation_matrix)
     """
-    return _is_rotation(matrix, tol=tol)
+    return _is_rotation(matrix, tol)
 
 
 def is_orthogonal(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
@@ -95,7 +95,7 @@ def is_orthogonal(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
         If the input array is not 2D/3D,
         or if the matrices are not square.
     """
-    return _is_orthogonal(matrix, tol=tol)
+    return _is_orthogonal(matrix, tol)
 
 
 def has_unit_determinant(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
@@ -129,7 +129,7 @@ def has_unit_determinant(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.nda
         If the input array is not 2D/3D,
         or if the matrices are not square.
     """
-    return _has_unit_determinant(matrix, tol=tol)
+    return _has_unit_determinant(matrix, tol)
 
 
 @jax.jit
@@ -155,7 +155,7 @@ def has_unit_determinant_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
 def _vmap_if_batch(
     fn_single: Callable[..., Any],
     *,
-    in_axes=(0, None),
+    in_axes: int | tuple[int, ...] = (0, None),
     arg_name: str = "matrix",
 ) -> Callable[..., Any]:
     """Decorator to create a function that handles both single and batched matrix inputs.
@@ -178,16 +178,16 @@ def _vmap_if_batch(
     fn_batch = jax.jit(jax.vmap(fn_single, in_axes=in_axes))
 
     @wraps(fn_single)
-    def wrapper(matrix: jnp.ndarray, **kwargs) -> bool | jnp.ndarray:
+    def wrapper(matrix: jnp.ndarray, *args, **kwargs) -> bool | jnp.ndarray:
         matrix = jnp.asarray(matrix)
         if matrix.shape[-1] != matrix.shape[-2]:
             raise exception.InputError(
                 name=arg_name, value=matrix, problem=f"Matrices must be square, but have shape {matrix.shape[-2:]}."
             )
         if matrix.ndim == 2:
-            return fn_single(matrix, **kwargs).item()  # convert from DeviceArray(bool) to Python bool
+            return fn_single(matrix, *args, **kwargs).item()  # convert from DeviceArray(bool) to Python bool
         if matrix.ndim == 3:
-            return fn_batch(matrix, **kwargs)
+            return fn_batch(matrix, *args, **kwargs)
         raise exception.InputError(
             name=arg_name,
             value=matrix,
