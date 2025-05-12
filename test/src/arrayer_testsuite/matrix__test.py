@@ -9,11 +9,12 @@ import pytest
 import arrayer
 from arrayer.matrix import is_rotation, is_orthogonal, has_unit_determinant
 
+from arrayer_testsuite import data
+
 
 def load_test_cases() -> dict:
     """Load golden and negative test cases from matrix.yaml."""
-    file = Path(__file__).parent / "data/matrix.yaml"
-    with open(file, 'r') as f:
+    with open(data.filepath("matrix.yaml"), 'r') as f:
         return yaml.safe_load(f)
 
 
