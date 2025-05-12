@@ -2,115 +2,200 @@
 
 from __future__ import annotations
 
+from functools import wraps
 from typing import TYPE_CHECKING
 
-import numpy as np
+import jax
 import jax.numpy as jnp
-import scipy as sp
 
 from arrayer import exception
 
 if TYPE_CHECKING:
-    from typing import Literal
+    from typing import Callable, Any
+    from numpy.typing import ArrayLike
 
 
-def is_rotation(matrix: np.ndarray, tol: float = 1e-8) -> bool:
-    """Determine if a matrix is a pure rotation matrix.
+def is_rotation(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
+    """Check whether the input represents a pure rotation matrix (or batch thereof).
 
-    A rotation matrix is a square matrix that represents a rotation
+    This is done by checking whether the matrix is
+    both orthogonal and has a determinant of +1
+    within a numerical tolerance.
+
+    Parameters
+    ----------
+    matrix
+        One of:
+        - Single matrix of shape `(n_dims, n_dims)`.
+        - Batch of matrices with shape `(n_batches, n_dims, n_dims)`.
+
+        Each matrix is expected to be real-valued and square.
+    tol
+        Absolute tolerance used for both orthogonality and determinant tests.
+        This threshold defines the allowed numerical deviation
+        from perfect rotation properties.
+        This should be a small positive float, e.g., 1e-8.
+
+    Returns
+    -------
+    - For a single matrix input: a Python `bool` indicating whether the matrix is a pure rotation matrix.
+    - For a batch of matrices: a JAX boolean array of shape `(n_batches,)`
+      where each element indicates whether the corresponding matrix is a pure rotation matrix.
+
+    Raises
+    ------
+    arrayer.exception.InputError
+        If the input array is not 2D/3D,
+        or if the matrices are not square.
+
+    Notes
+    -----
+    A rotation matrix is a square matrix that represents a rigid-body rotation
     in Euclidean space, preserving the length of vectors and angles between them
     (i.e., no scaling, shearing, or reflection).
     A matrix is a rotation matrix if it is orthogonal
     ($R^\\top R \\approx I$) and has determinant +1,
     meaning it preserves both length/angle and orientation.
 
-    Parameters
-    ----------
-    matrix
-        Square matrix of shape (n, n).
-        Assumed to be real-valued.
-        The matrix should represent a
-        linear transformation in ℝⁿ.
-    tol
-        Absolute tolerance used for both orthogonality and determinant tests.
-
-    Returns
-    -------
-    True if R is a pure rotation matrix; False otherwise.
-
-    Raises
-    ------
-    scids.exception.InputError
-        If R is not a 2D square matrix.
-
     References
     ----------
     - [Rotation matrix - Wikipedia](https://en.wikipedia.org/wiki/Rotation_matrix)
     """
-    return is_orthogonal(matrix, tol=tol) and has_unit_determinant(matrix, tol=tol)
+    return _is_rotation(matrix, tol=tol)
 
 
-def is_orthogonal(matrix: np.ndarray, tol: float = 1e-8) -> bool:
-    """Check whether a matrix is orthogonal.
+def is_orthogonal(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
+    """Check whether the input represents an orthogonal matrix (or batch thereof).
 
-    Tests whether the transpose of the matrix multiplied by the matrix
-    itself yields the identity matrix within a numerical tolerance.
-    Matrix must be square and real-valued.
+    This is done by checking whether the transpose of the matrix
+    multiplied by the matrix itself yields the identity matrix
+    within a numerical tolerance, i.e., $R^\\top R \\approx I$.
 
     Parameters
     ----------
     matrix
-        Square matrix of shape (n, n).
-        The matrix is expected to be real-valued (not complex),
-        representing a linear transformation in ℝⁿ.
+        One of:
+        - Single matrix of shape `(n_dims, n_dims)`.
+        - Batch of matrices with shape `(n_batches, n_dims, n_dims)`.
+
+        Each matrix is expected to be real-valued and square.
     tol
         Absolute tolerance for comparison against the identity matrix.
-        Should be a small positive float, e.g., 1e-8.
+        This should be a small positive float, e.g., 1e-8.
 
     Returns
     -------
-    True if $R^\\top R \\approx I$ within the given tolerance; False otherwise.
+    - For a single matrix input: a Python `bool` indicating whether the matrix is orthogonal.
+    - For a batch of matrices: a JAX boolean array of shape `(n_batches,)`
+      where each element indicates whether the corresponding matrix is orthogonal.
 
     Raises
     ------
-    scids.exception.InputError
-        If R is not a 2D square matrix.
+    arrayer.exception.InputError
+        If the input array is not 2D/3D,
+        or if the matrices are not square.
     """
-    matrix = np.asarray(matrix)
-    if matrix.ndim != 2:
-        raise exception.InputError("matrix", f"Matrix must be 2D, but is {matrix.ndim}D: {matrix}.")
-    if matrix.shape[0] != matrix.shape[1]:
-        raise exception.InputError("matrix", f"Matrix must be square, but has shape {matrix.shape}.")
-    identity = np.eye(matrix.shape[0], dtype=matrix.dtype)
-    return np.allclose(matrix.T @ matrix, identity, atol=tol)
+    return _is_orthogonal(matrix, tol=tol)
 
 
-def has_unit_determinant(matrix: np.ndarray, tol: float = 1e-8) -> bool:
-    """Check whether a matrix has determinant approximately +1.
+def has_unit_determinant(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
+    """Check whether the input represents a matrix (or batch thereof) with determinant approximately +1, i.e., $\\det(R) \\approx 1$.
 
-    Used to test if a transformation matrix preserves orientation
-    and volume, as required for a proper rotation.
+    This can be used to test if a transformation matrix
+    preserves orientation and volume,
+    as required for a proper rotation.
 
     Parameters
     ----------
     matrix
-        Square matrix of shape (n, n).
-        Matrix is assumed to be real-valued.
+        One of:
+        - Single matrix of shape `(n_dims, n_dims)`.
+        - Batch of matrices with shape `(n_batches, n_dims, n_dims)`.
+
+        Each matrix is expected to be real-valued and square.
     tol
-        Absolute tolerance for deviation from +1.
+        Absolute tolerance for determinant deviation from +1.
+        This should be a small positive float, e.g., 1e-8.
 
     Returns
     -------
-    True if $\\det(R) \\approx 1$ within the given tolerance; False otherwise.
+    - For a single matrix input: a Python `bool` indicating whether the matrix has unit determinant.
+    - For a batch of matrices: a JAX boolean array of shape `(n_batches,)`
+      where each element indicates whether the corresponding matrix has unit determinant.
 
     Raises
     ------
-    scids.exception.InputError
-        If R is not a 2D square matrix.
+    arrayer.exception.InputError
+        If the input array is not 2D/3D,
+        or if the matrices are not square.
     """
-    matrix = np.asarray(matrix)
-    if matrix.ndim != 2:
-        raise exception.InputError("matrix", f"Matrix must be 2D, but is {matrix.ndim}D: {matrix}.")
-    if matrix.shape[0] != matrix.shape[1]:
-        raise exception.InputError("matrix", f"Matrix must be square, but has shape {matrix.shape}.")
-    return abs(np.linalg.det(matrix) - 1.0) <= tol
+    return _has_unit_determinant(matrix, tol=tol)
+
+
+@jax.jit
+def is_rotation_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
+    """Check whether a matrix is a pure rotation matrix."""
+    return is_orthogonal_single(matrix, tol=tol) & has_unit_determinant_single(matrix, tol=tol)
+
+
+@jax.jit
+def is_orthogonal_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
+    """Check whether a matrix is orthogonal."""
+    identity = jnp.eye(matrix.shape[0], dtype=matrix.dtype)
+    deviation = jnp.abs(matrix.T @ matrix - identity)
+    return jnp.all(deviation <= tol)
+
+
+@jax.jit
+def has_unit_determinant_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
+    """Check whether a matrix has determinant approximately +1."""
+    return jnp.abs(jnp.linalg.det(matrix) - 1.0) <= tol
+
+
+def _vmap_if_batch(
+    fn_single: Callable[..., Any],
+    *,
+    in_axes=(0, None),
+    arg_name: str = "matrix",
+) -> Callable[..., Any]:
+    """Decorator to create a function that handles both single and batched matrix inputs.
+
+    Parameters
+    ----------
+    fn_single
+        A function that operates on a single matrix.
+    in_axes
+        The axes to map over for the batched version.
+    arg_name
+        Used for exception messages.
+
+    Returns
+    -------
+    callable
+        A function that dispatches to the jitted single or batched (vmapped + jitted) version.
+    """
+    # Create statically-compiled vmap+jit version at decoration time
+    fn_batch = jax.jit(jax.vmap(fn_single, in_axes=in_axes))
+
+    @wraps(fn_single)
+    def wrapper(matrix: jnp.ndarray, **kwargs) -> bool | jnp.ndarray:
+        matrix = jnp.asarray(matrix)
+        if matrix.shape[-1] != matrix.shape[-2]:
+            raise exception.InputError(
+                name=arg_name, value=matrix, problem=f"Matrices must be square, but have shape {matrix.shape[-2:]}."
+            )
+        if matrix.ndim == 2:
+            return fn_single(matrix, **kwargs).item()  # convert from DeviceArray(bool) to Python bool
+        if matrix.ndim == 3:
+            return fn_batch(matrix, **kwargs)
+        raise exception.InputError(
+            name=arg_name,
+            value=matrix,
+            problem=f"Expected 2D or 3D input, but got shape {matrix.shape}"
+        )
+    return wrapper
+
+
+_is_rotation = _vmap_if_batch(is_rotation_single)
+_is_orthogonal = _vmap_if_batch(is_orthogonal_single)
+_has_unit_determinant = _vmap_if_batch(has_unit_determinant_single)
