@@ -96,14 +96,26 @@ def pca(
     """
     points = jnp.asarray(points)
     if points.shape[-2] < 2:
-        raise exception.InputError("points", f"At least 2 points are required, but got {points.shape[0]}.")
+        raise exception.InputError(
+            name="points",
+            value=points,
+            problem=f"At least 2 points are required, but got {points.shape[0]}."
+        )
     if points.shape[-1] < 2:
-        raise exception.InputError("points", f"At least 2 features are required, but got {points.shape[1]}.")
+        raise exception.InputError(
+            name="points",
+            value=points,
+            problem=f"At least 2 features are required, but got {points.shape[1]}."
+        )
     if points.ndim == 2:
         return pca_single(points, variance_type)
     if points.ndim == 3:
         return pca_batch(points, variance_type)
-    raise exception.InputError("points", f"Points must be a 2D or 3D array, but is {points.ndim}D: {points}.")
+    raise exception.InputError(
+        name="points",
+        value=points,
+        problem=f"Points must be a 2D or 3D array, but is {points.ndim}D."
+    )
 
 
 @partial(jax.jit, static_argnames=("variance_type",))
