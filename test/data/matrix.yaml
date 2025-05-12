@@ -1,0 +1,67 @@
+is_rotation:
+  golden:
+    - case: identity_matrix
+      input: [[ [1,0], [0,1] ]]
+      expected: true
+    - case: rotation_90
+      input: [[ [0,-1], [1,0] ]]
+      expected: true
+    - case: scaling_matrix
+      input: [[ [2,0], [0,2] ]]
+      expected: false
+    - case: batch_mixed
+      input:
+        - [ [1,0], [0,1] ]
+        - [ [0,-1], [1,0] ]
+        - [ [2,0], [0,2] ]
+      expected: [true, true, false]
+  negative:
+    - case: non_square_matrix
+      input: [[ [1,0,0], [0,1,0] ]]
+      error: arrayer.exception.InputError
+      message: "Matrices must be square"
+    - case: invalid_ndim
+      input: [[[ [1,0], [0,1] ]]]  # shape (1,1,2,2)
+      error: arrayer.exception.InputError
+      message: "Expected 2D or 3D input"
+is_orthogonal:
+  golden:
+    - case: identity_matrix
+      input: [[ [1,0], [0,1] ]]
+      expected: true
+    - case: shearing_matrix
+      input: [[ [1,2], [0,1] ]]
+      expected: false
+    - case: batch_mixed
+      input:
+        - [ [1,0], [0,1] ]
+        - [ [0,-1], [1,0] ]
+        - [ [1,2], [0,1] ]
+      expected: [true, true, false]
+  negative:
+    - case: non_square_matrix
+      input: [[ [1,0,0], [0,1,0] ]]
+      error: arrayer.exception.InputError
+      message: "Matrices must be square"
+has_unit_determinant:
+  golden:
+    - case: identity_matrix
+      input: [[ [1,0], [0,1] ]]
+      expected: true
+    - case: scaling_unit_det
+      input: [[ [2,0], [0,0.5] ]]
+      expected: true
+    - case: scaling_non_unit_det
+      input: [[ [2,0], [0,3] ]]
+      expected: false
+    - case: batch_mixed
+      input:
+        - [ [1,0], [0,1] ]
+        - [ [0,-1], [1,0] ]
+        - [ [3,0], [0,0.1] ]
+      expected: [true, true, false]
+  negative:
+    - case: non_square_matrix
+      input: [[ [1,0,0], [0,1,0] ]]
+      error: arrayer.exception.InputError
+      message: "Matrices must be square"
