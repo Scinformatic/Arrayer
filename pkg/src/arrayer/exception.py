@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 class ArrayerError(Exception):
     """Base class for all Arrayer exceptions."""
     def __init__(
         self,
-        file_type: str,
         message: str,
     ):
         super().__init__(message)
-        self.file_type = file_type
         self.message = message
         return
 
