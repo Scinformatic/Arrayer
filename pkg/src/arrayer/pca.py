@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from numpy.typing import ArrayLike
 
 
+__all__ = ["pca", "pca_single", "pca_batch"]
+
+
 def pca(
     points: ArrayLike,
     variance_type: Literal["raw", "ratio", "biased", "unbiased"] = "unbiased"
