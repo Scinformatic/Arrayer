@@ -4,8 +4,8 @@ import numpy as np
 
 
 def cylinder(
-    radius: float = 1,
-    n_points: int = 100,
+    radius: float = 0.05,
+    n_points: int = 1000,
     start: tuple[float, float, float] = (0, 0, -1),
     end: tuple[float, float, float] = (0, 0, 1)
 ) -> np.ndarray:
