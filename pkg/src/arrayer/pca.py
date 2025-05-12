@@ -18,79 +18,13 @@ def pca(
     points: ArrayLike,
     variance_type: Literal["raw", "ratio", "biased", "unbiased"] = "unbiased"
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    points = jnp.asarray(points)
-    if points.shape[-2] < 2:
-        raise exception.InputError("points", f"At least 2 points are required, but got {points.shape[0]}.")
-    if points.shape[-1] < 2:
-        raise exception.InputError("points", f"At least 2 dimensions are required, but got {points.shape[1]}.")
-    if points.ndim == 2:
-        return pca_single(points, variance_type)
-    if points.ndim == 3:
-        return pca_batch(points, variance_type)
-    raise exception.InputError("points", f"Points must be a 2D array, but is {points.ndim}D: {points}.")
-
-
-@partial(jax.jit, static_argnames=("variance_type",))
-def pca_single(
-    points: jnp.ndarray,
-    variance_type: Literal["raw", "ratio", "biased", "unbiased"] = "unbiased"
-):
-    # Center points
-    center = jnp.mean(points, axis=0)
-    translation_vector = -center
-    points_centered = points + translation_vector
-
-    # SVD decomposition
-    u, s, vt = jnp.linalg.svd(points_centered, full_matrices=False)
-
-    # Flip eigenvectors' signs to enforce deterministic output
-    # Ref: https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/utils/extmath.py#L895
-    max_abs_v_rows = jnp.argmax(jnp.abs(vt), axis=1)
-    shift = jnp.arange(vt.shape[0])
-    signs = jnp.sign(vt[shift, max_abs_v_rows])
-    u = u * signs[None, :]
-    vt = vt * signs[:, None]
-
-    # Enforce right-handed coordinate system (determinant positive)
-    det_vt = jnp.linalg.det(vt)
-    flip_factor = jnp.where(det_vt < 0, -1.0, 1.0)
-    # Flip last row of vt and last column of u (if needed)
-    vt = vt.at[-1].multiply(flip_factor)
-    u = u.at[:, -1].multiply(flip_factor)
-
-    # Transformed points (projection)
-    points_transformed = u * s
-
-    # Variance explained
-    variance = s ** 2
-    variance = jax.lax.switch(
-        {"raw": 0, "ratio": 1, "biased": 2, "unbiased": 3}[variance_type],
-        [
-            lambda v: v,
-            lambda v: v / v.sum(),
-            lambda v: v / points.shape[0],
-            lambda v: v / (points.shape[0] - 1)
-        ],
-        variance
-    )
-    return vt, variance, translation_vector, points_transformed
-
-
-pca_batch = jax.vmap(pca_single, in_axes=(0, None))
-
-
-def _pca_non_vectorized(
-    points: np.ndarray,
-    variance_type: Literal["raw", "ratio", "biased", "unbiased"] = "unbiased"
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Perform Principal Component Analysis (PCA) on a set of points.
-
-    PCA is performed using Singular Value Decomposition (SVD).
 
     Parameters
     ----------
     points
-        Input data of shape `(n_samples, n_features)`.
+        Input data of shape `(n_samples, n_features)`
+        or `(n_batches, n_samples, n_features)`.
     variance_type
         Which explained variance values to return:
         - "raw": Raw variance magnitudes (i.e., PCA energies).
@@ -106,7 +40,9 @@ def _pca_non_vectorized(
 
     Returns
     -------
-    A 4-tuple containing:
+    A 4-tuple containing
+    (note that the given shapes here are for the case of 2D input data;
+    for 3D input data, the batch dimension is added as the first axis):
 
     1. Principal component matrix `P`.
        This is a matrix of shape `(n_features, n_features)`,
@@ -141,6 +77,7 @@ def _pca_non_vectorized(
 
     Notes
     -----
+    PCA is performed using Singular Value Decomposition (SVD).
     This function enforces a pure rotation matrix (i.e., no reflection)
     and a deterministic output.
     This is done to ensure that the transformation
@@ -158,48 +95,72 @@ def _pca_non_vectorized(
     - [Scikit-learn PCA documentation](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html)
     """
     points = jnp.asarray(points)
-    if points.ndim != 2:
-        raise exception.InputError("points", f"Points must be a 2D array, but is {points.ndim}D: {points}.")
-    if points.shape[0] < 2:
+    if points.shape[-2] < 2:
         raise exception.InputError("points", f"At least 2 points are required, but got {points.shape[0]}.")
-    if points.shape[1] < 2:
-        raise exception.InputError("points", f"At least 2 dimensions are required, but got {points.shape[1]}.")
+    if points.shape[-1] < 2:
+        raise exception.InputError("points", f"At least 2 features are required, but got {points.shape[1]}.")
+    if points.ndim == 2:
+        return pca_single(points, variance_type)
+    if points.ndim == 3:
+        return pca_batch(points, variance_type)
+    raise exception.InputError("points", f"Points must be a 2D or 3D array, but is {points.ndim}D: {points}.")
 
-    # Center the points
+
+@partial(jax.jit, static_argnames=("variance_type",))
+def pca_single(
+    points: jnp.ndarray,
+    variance_type: Literal["raw", "ratio", "biased", "unbiased"] = "unbiased"
+):
+    """Perform PCA on a single set of points with shape `(n_samples, n_features)`."""
+    # Center points
     center = jnp.mean(points, axis=0)
-    translation_vector = center * -1
+    translation_vector = -center
     points_centered = points + translation_vector
 
-    # Perform SVD
+    # SVD decomposition
     u, s, vt = jnp.linalg.svd(points_centered, full_matrices=False)
+
     # Flip eigenvectors' signs to enforce deterministic output
     # Ref: https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/utils/extmath.py#L895
     max_abs_v_rows = jnp.argmax(jnp.abs(vt), axis=1)
     shift = jnp.arange(vt.shape[0])
-    indices = max_abs_v_rows + shift * vt.shape[1]
-    signs = jnp.sign(jnp.take(jnp.reshape(vt, (-1,)), indices, axis=0))
-    u *= signs[jnp.newaxis, :]
-    vt *= signs[:, jnp.newaxis]
-    if jnp.linalg.det(vt) < 0:
-        vt = vt.at[-1].multiply(-1)  # flip last principal component
-        u = u.at[:, -1].multiply(-1)  # adjust projected data to match
+    signs = jnp.sign(vt[shift, max_abs_v_rows])
+    u = u * signs[None, :]
+    vt = vt * signs[:, None]
 
-    points_transformed = u * s  # equal to `points_centered @ principal_components.T`
+    # Enforce right-handed coordinate system,
+    # i.e., no reflections (determinant must be +1 and not -1)
+    det_vt = jnp.linalg.det(vt)
+    flip_factor = jnp.where(det_vt < 0, -1.0, 1.0)
+    # Flip last row of vt and last column of u (if needed)
+    vt = vt.at[-1].multiply(flip_factor)  # flip last principal component
+    u = u.at[:, -1].multiply(flip_factor)  # adjust projected data to match
+
+    # Transformed points (projection)
+    points_transformed = u * s  # equal to `points_centered @ vt.T`
 
     # Note that the same can be achieved by eigen decomposition of the covariance matrix:
-    # covariance_matrix = np.cov(points_centered, rowvar=False)
-    # eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
-    # sorted_indices = np.argsort(eigenvalues)[::-1]
-    # variance = eigenvalues[sorted_indices]
-    # principal_components = eigenvectors[:, sorted_indices].T
-    # points_transformed = points @ principal_components
+    #     covariance_matrix = np.cov(points_centered, rowvar=False)
+    #     eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
+    #     sorted_indices = np.argsort(eigenvalues)[::-1]
+    #     variance = eigenvalues[sorted_indices]
+    #     principal_components = eigenvectors[:, sorted_indices].T
+    #     points_transformed = points @ principal_components
 
-    # Calculate variance
+    # Calculate explained variance
     variance = s ** 2
-    if variance_type == "ratio":
-        variance /= variance.sum()
-    elif variance_type == "biased":
-        variance /= points.shape[0]
-    elif variance_type == "unbiased":
-        variance /= points.shape[0] - 1
+    variance = jax.lax.switch(
+        {"raw": 0, "ratio": 1, "biased": 2, "unbiased": 3}[variance_type],
+        [
+            lambda v: v,
+            lambda v: v / v.sum(),
+            lambda v: v / points.shape[0],
+            lambda v: v / (points.shape[0] - 1)
+        ],
+        variance
+    )
     return vt, variance, translation_vector, points_transformed
+
+
+pca_batch = jax.vmap(pca_single, in_axes=(0, None))
+"""Perform PCA on a batch of points with shape `(n_batches, n_samples, n_features)`."""
