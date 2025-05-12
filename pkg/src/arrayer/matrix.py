@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from numpy.typing import ArrayLike
 
 
+__all__ = [
+    "is_rotation", "is_orthogonal", "has_unit_determinant",
+    "is_rotation_single", "is_orthogonal_single", "has_unit_determinant_single",
+]
+
+
 def is_rotation(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
     """Check whether the input represents a pure rotation matrix (or batch thereof).
 
