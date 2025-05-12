@@ -2,7 +2,7 @@ import pytest
 import yaml
 import jax.numpy as jnp
 
-from arrayer import pca as pca_module
+from arrayer import pca
 
 from arrayer_testsuite import data
 
@@ -18,7 +18,7 @@ def test_pca__golden_file(case):
     points = jnp.array(case["input"])
     variance_type = case.get("variance_type", "unbiased")
 
-    P, variance, t, transformed = pca_module.pca(points, variance_type)
+    P, variance, t, transformed = pca(points, variance_type)
 
     expected = case["expected"]
     expected_P = jnp.array(expected["P"])
