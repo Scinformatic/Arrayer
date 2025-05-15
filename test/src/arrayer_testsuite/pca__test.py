@@ -1,8 +1,10 @@
 import pytest
 import yaml
 import jax.numpy as jnp
+import numpy as np
+from sklearn.decomposition import PCA as SklearnPCA
 
-from arrayer import pca
+import arrayer
 
 from arrayer_testsuite import data
 
@@ -14,27 +16,83 @@ def load_test_cases() -> dict:
 
 
 @pytest.mark.parametrize("case", load_test_cases())
-def test_pca__golden_file(case):
-    points = jnp.array(case["input"])
-    variance_type = case.get("variance_type", "unbiased")
+def pca__golden_file__test(case):
+    """Test PCA against golden file expectations."""
+    output = arrayer.pca(**case["input"])
+    expected_output = case["output"]
 
-    P, variance, t, transformed = pca(points, variance_type)
-
-    expected = case["expected"]
-    expected_P = jnp.array(expected["P"])
-    expected_variance = jnp.array(expected["variance"])
-    expected_t = jnp.array(expected["t"])
-    expected_transformed = jnp.array(expected["transformed"])
-
-    # Shape assertions
-    assert P.shape == expected_P.shape, f"Shape mismatch in P: got {P.shape}, expected {expected_P.shape}"
-    assert variance.shape == expected_variance.shape, f"Shape mismatch in variance: got {variance.shape}, expected {expected_variance.shape}"
-    assert t.shape == expected_t.shape, f"Shape mismatch in t: got {t.shape}, expected {expected_t.shape}"
-    assert transformed.shape == expected_transformed.shape, f"Shape mismatch in transformed: got {transformed.shape}, expected {expected_transformed.shape}"
-
-    # Value comparisons
-    assert jnp.allclose(P, expected_P, atol=1e-6), f"Failed case {case['case']}: P"
-    assert jnp.allclose(variance, expected_variance, atol=1e-6), f"Failed case {case['case']}: variance"
-    assert jnp.allclose(t, expected_t, atol=1e-6), f"Failed case {case['case']}: t"
-    assert jnp.allclose(transformed, expected_transformed, atol=1e-6), f"Failed case {case['case']}: transformed"
+    for output_name, expected_output_value in expected_output.items():
+        expected_output_value = jnp.array(expected_output_value)
+        output_value = getattr(output, output_name)
+        assert output_value.shape == expected_output_value.shape, f"Shape mismatch in {output_name}: expected {expected_output_value.shape}, got {output_value.shape}."
+        assert jnp.allclose(output_value, expected_output_value, atol=1e-6), f"Value mismatch in {output_name}: expected {expected_output_value}, got {output_value}."
     return
+
+
+def pca__batch_vs_single__test():
+    """Test PCA batch vs single outputs."""
+    n_batches = 10
+    n_points = 100
+    for n_features in (2, 3, 4):
+        points = np.random.rand(n_batches, n_points, n_features)
+        output_batch = arrayer.pca(points)
+
+        # Verify output shapes
+        output_batch_shapes = get_expected_output_shapes(n_batches, n_points, n_features)
+        for output_name, expected_shape in output_batch_shapes.items():
+            value = getattr(output_batch, output_name)
+            assert value.shape == expected_shape, f"Shape mismatch in {output_name}: expected {expected_shape}, got {value.shape}."
+
+        # Verify batch vs single output
+        for batch_idx in range(n_batches):
+            output_single = arrayer.pca(points[batch_idx])
+            for output_name in output_batch_shapes.keys():
+                value_batch = getattr(output_batch, output_name)[batch_idx]
+                value_single = getattr(output_single, output_name)
+                assert jnp.allclose(value_batch, value_single, atol=1e-6), f"Value mismatch in {output_name} for batch {batch_idx}: expected {value_single}, got {value_batch}."
+
+
+def pca__sklearn_comparison__test():
+    n_tests = 100
+    n_points = 10
+    n_features_cases = (2, 3, 4)
+    for _ in range(n_tests):
+        for n_features in n_features_cases:
+            points = np.random.rand(n_points, n_features)
+            arrayer_output = arrayer.pca(points)
+            sklearn_pca = SklearnPCA()
+            sklearn_output = {"points": sklearn_pca.fit_transform(points)}
+            sklearn_output |= {
+                "components": sklearn_pca.components_,
+                "singular_values": sklearn_pca.singular_values_,
+                "variance_ratio": sklearn_pca.explained_variance_ratio_,
+                "variance_unbiased": sklearn_pca.explained_variance_,
+                "translation": sklearn_pca.mean_ * -1
+            }
+            expected_equal_names = ["singular_values", "variance_ratio", "variance_unbiased", "translation"]
+            sklearn_is_rotation = arrayer.matrix.is_rotation(sklearn_output["components"], tol=1e-5)
+            if sklearn_is_rotation:
+                expected_equal_names.extend(["points", "components"])
+            else:
+                sklearn_components = sklearn_output["components"]
+                sklearn_components[-1] *= -1
+                assert jnp.allclose(arrayer_output.components, sklearn_components, atol=1e-5), f"Value mismatch in components (sklearn reflected): expected {sklearn_components}, got {arrayer_output.components} for points {points}."
+            for output_name in expected_equal_names:
+                arrayer_value = getattr(arrayer_output, output_name)
+                sklearn_value = sklearn_output[output_name]
+                assert jnp.allclose(arrayer_value, sklearn_value, atol=1e-5), f"Value mismatch in {output_name}: expected {sklearn_value}, got {arrayer_value}."
+
+
+def get_expected_output_shapes(n_batches: int | None, n_samples: int, n_features: int) -> dict:
+    """Get expected output shapes for PCA."""
+    shape_single = {
+        "points": (n_samples, n_features),
+        "components": (n_features, n_features),
+        "singular_values": (n_features,),
+        "translation": (n_features,),
+        "variance_magnitude": (n_features,),
+        "variance_ratio": (n_features,),
+        "variance_biased": (n_features,),
+        "variance_unbiased": (n_features,),
+    }
+    return shape_single if n_batches is None else {k: (n_batches, *v) for k, v in shape_single.items()}
