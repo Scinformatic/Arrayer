@@ -14,10 +14,13 @@ if TYPE_CHECKING:
     from typing import Callable, Any
     from numpy.typing import ArrayLike
 
-
 __all__ = [
-    "is_rotation", "is_orthogonal", "has_unit_determinant",
-    "is_rotation_single", "is_orthogonal_single", "has_unit_determinant_single",
+    "is_rotation",
+    "is_orthogonal",
+    "has_unit_determinant",
+    "is_rotation_single",
+    "is_orthogonal_single",
+    "has_unit_determinant_single",
 ]
 
 
