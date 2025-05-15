@@ -1,6 +1,6 @@
 """Arrayer: Array-based operations and algorithms."""
 
-from arrayer import matrix, pcloud
+from arrayer import dtype, matrix, pcloud, tensor
 from arrayer.pca import pca
 
-__all__ = ["matrix", "pca", "pcloud"]
+__all__ = ["dtype", "matrix", "pca", "pcloud", "tensor"]
