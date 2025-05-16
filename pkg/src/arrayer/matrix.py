@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-def is_rotation(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
+def is_rotation(matrix: ArrayLike, tol: float = 1e-6) -> bool | jnp.ndarray:
     """Check whether the input represents a pure rotation matrix (or batch thereof).
 
     This is done by checking whether the matrix is
@@ -73,7 +73,7 @@ def is_rotation(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
     return _is_rotation(matrix, tol)
 
 
-def is_orthogonal(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
+def is_orthogonal(matrix: ArrayLike, tol: float = 1e-6) -> bool | jnp.ndarray:
     """Check whether the input represents an orthogonal matrix (or batch thereof).
 
     This is done by checking whether the transpose of the matrix
@@ -107,7 +107,7 @@ def is_orthogonal(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
     return _is_orthogonal(matrix, tol)
 
 
-def has_unit_determinant(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.ndarray:
+def has_unit_determinant(matrix: ArrayLike, tol: float = 1e-6) -> bool | jnp.ndarray:
     """Check whether the input represents a matrix (or batch thereof) with determinant approximately +1, i.e., $\\det(R) \\approx 1$.
 
     This can be used to test if a transformation matrix
@@ -142,13 +142,13 @@ def has_unit_determinant(matrix: ArrayLike, tol: float = 1e-8) -> bool | jnp.nda
 
 
 @jax.jit
-def is_rotation_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
+def is_rotation_single(matrix: jnp.ndarray, tol: float = 1e-6) -> bool:
     """Check whether a matrix is a pure rotation matrix."""
     return is_orthogonal_single(matrix, tol=tol) & has_unit_determinant_single(matrix, tol=tol)
 
 
 @jax.jit
-def is_orthogonal_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
+def is_orthogonal_single(matrix: jnp.ndarray, tol: float = 1e-6) -> bool:
     """Check whether a matrix is orthogonal."""
     identity = jnp.eye(matrix.shape[0], dtype=matrix.dtype)
     deviation = jnp.abs(matrix.T @ matrix - identity)
@@ -156,7 +156,7 @@ def is_orthogonal_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
 
 
 @jax.jit
-def has_unit_determinant_single(matrix: jnp.ndarray, tol: float = 1e-8) -> bool:
+def has_unit_determinant_single(matrix: jnp.ndarray, tol: float = 1e-6) -> bool:
     """Check whether a matrix has determinant approximately +1."""
     return jnp.abs(jnp.linalg.det(matrix) - 1.0) <= tol
 
