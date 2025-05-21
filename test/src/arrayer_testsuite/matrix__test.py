@@ -53,7 +53,7 @@ def matrix_properties__negative_cases__test(func, key: str) -> None:
 
     for case in data:
         bad_input = jnp.array(case["input"]["matrix"])
-        expected_error = eval(case["error"])  # Use safe eval if dynamic imports are a concern
+        expected_error = eval(case["error"])
         expected_message = case.get("message", "")
 
         with pytest.raises(expected_error, match=expected_message):
