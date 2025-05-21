@@ -4,7 +4,7 @@ import yaml
 
 import jax.numpy as jnp
 import pytest
-import jaxtyping
+import jaxtyping as jaxtyping  # used dynamically by eval()
 
 from arrayer.matrix import is_rotation, is_orthogonal, has_unit_determinant
 
