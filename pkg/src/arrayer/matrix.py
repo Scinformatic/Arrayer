@@ -26,18 +26,18 @@ def is_rotation(
     matrix: Num[Array, "*n_batches n_rows n_rows"],
     tol: float | Float[Array, ""] = 1e-6,
 ) -> Bool[JAXArray, "*n_batches"]:
-    """Check whether the input represents pure rotation matrices.
+    """Check whether the input represents pure [rotation matrices](https://en.wikipedia.org/wiki/Rotation_matrix).
 
     This is done by verifying that each matrix is
-    square, orthogonal, and has a determinant of +1
+    orthogonal and has a determinant of +1
     within a numerical tolerance.
 
     Parameters
     ----------
     matrix
-        Matrices as an (N + 2)D array (N >= 0)
-        of shape (..., n_rows, n_columns),
-        where the first `n` dimensions are batch dimensions.
+        Square matrices (`n_rows` = `n_columns`)
+        as an array of shape `(*n_batches, n_rows, n_columns)`,
+        where `*n_batches` is zero or more batch dimensions.
     tol
         Absolute tolerance used for both orthogonality and determinant tests.
         This threshold defines the allowed numerical deviation
@@ -46,15 +46,8 @@ def is_rotation(
 
     Returns
     -------
-    - For a single matrix input: a Python `bool` indicating whether the matrix is a pure rotation matrix.
-    - For a batch of matrices: a JAX boolean array of shape `(n_batches,)`
-      where each element indicates whether the corresponding matrix is a pure rotation matrix.
-
-    Raises
-    ------
-    arrayer.exception.InputError
-        If the input array is not 2D/3D,
-        or if the matrices are not square.
+    A JAX boolean array of shape `(*n_batches,)`,
+    where each element indicates whether the corresponding matrix is a rotation matrix.
 
     Notes
     -----
@@ -64,10 +57,6 @@ def is_rotation(
     A matrix is a rotation matrix if it is orthogonal
     ($R^\\top R \\approx I$) and has determinant +1,
     meaning it preserves both length/angle and orientation.
-
-    References
-    ----------
-    - [Rotation matrix - Wikipedia](https://en.wikipedia.org/wiki/Rotation_matrix)
     """
     return is_orthogonal(matrix, tol=tol) & has_unit_determinant(matrix, tol=tol)
 
@@ -78,7 +67,7 @@ def is_orthogonal(
     matrix: Num[Array, "*n_batches n_rows n_rows"],
     tol: float | Float[Array, ""] = 1e-6,
 ) -> Bool[JAXArray, "*n_batches"]:
-    """Check whether the input represents an orthogonal matrix (or batch thereof).
+    """Check whether the input represents orthogonal matrices.
 
     This is done by checking whether the transpose of the matrix
     multiplied by the matrix itself yields the identity matrix
@@ -87,26 +76,17 @@ def is_orthogonal(
     Parameters
     ----------
     matrix
-        One of:
-        - Single matrix of shape `(n_dims, n_dims)`.
-        - Batch of matrices with shape `(n_batches, n_dims, n_dims)`.
-
-        Each matrix is expected to be real-valued and square.
+        Square matrices (`n_rows` = `n_columns`)
+        as an array of shape `(*n_batches, n_rows, n_columns)`,
+        where `*n_batches` is zero or more batch dimensions.
     tol
         Absolute tolerance for comparison against the identity matrix.
         This should be a small positive float, e.g., 1e-8.
 
     Returns
     -------
-    - For a single matrix input: a Python `bool` indicating whether the matrix is orthogonal.
-    - For a batch of matrices: a JAX boolean array of shape `(n_batches,)`
-      where each element indicates whether the corresponding matrix is orthogonal.
-
-    Raises
-    ------
-    arrayer.exception.InputError
-        If the input array is not 2D/3D,
-        or if the matrices are not square.
+    A JAX boolean array of shape `(*n_batches,)`,
+    where each element indicates whether the corresponding matrix is orthogonal.
     """
     transposed_matrix = jnp.swapaxes(matrix, -1, -2)
     gram_matrix = transposed_matrix @ matrix
@@ -129,9 +109,9 @@ def has_unit_determinant(
     Parameters
     ----------
     matrix
-        Array of shape `(*n_batches, n_rows, n_columns)`,
-        where `*n_batches` is zero or more batch dimensions,
-        holding square matrices (`n_rows` = `n_columns`).
+        Square matrices (`n_rows` = `n_columns`)
+        as an array of shape `(*n_batches, n_rows, n_columns)`,
+        where `*n_batches` is zero or more batch dimensions.
     tol
         Absolute tolerance for determinant deviation from +1.
         This should be a small positive float, e.g., 1e-8.
