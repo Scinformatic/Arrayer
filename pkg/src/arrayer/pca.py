@@ -1,4 +1,44 @@
-"""Principal Component Analysis (PCA)."""
+"""Principal Component Analysis ([PCA](https://en.wikipedia.org/wiki/Principal_component_analysis)).
+
+This module provides functionalities to
+perform PCA on a real or complex-valued point cloud, or batch thereof,
+using Singular Value Decomposition ([SVD](https://en.wikipedia.org/wiki/Singular_value_decomposition)).
+
+End users should call the `pca` function,
+which automatically handles different input data shapes,
+performs the necessary checks,
+and returns a `PCAOutput` object containing the results.
+The `pca_single` and `pca_batch` functions
+are lower-level [JAX-jitted](https://docs.jax.dev/en/latest/jit-compilation.html) functions
+that perform PCA on a single point cloud
+or a batch of point clouds, respectively,
+and can be used for integration into other JAX-based workflows.
+
+See Also
+--------
+sklearn.decomposition.PCA : [Scikit-learn PCA implementation](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html)
+
+Notes
+-----
+- In contrast to `sklearn.decomposition.PCA`,
+  this implementation **supports complex-valued data**.
+- In contrast to `sklearn.decomposition.PCA`,
+  this implementation **enforces a pure rotation matrix** (i.e., no reflection)
+  for real-valued data to ensure that the transformation can be safely applied
+  to chiral point clouds (e.g., atomic coordinates in a molecule).
+- Similar to `sklearn.decomposition.PCA`,
+  this implementation **enforces a deterministic output**
+  for real-valued data to ensure that the results are consistent across different runs.
+  To do so, principal axes are first adjusted such that
+  the loadings in the axes that are largest in absolute value are positive.
+  Subsequently, if the determinant of the resulting principal component matrix
+  is negative, the sign of the last principal axis is flipped.
+
+References
+----------
+- [Greenacre, M., Groenen, P.J.F., Hastie, T. et al. Principal component analysis.
+  *Nat Rev Methods Primers* **2**, 100 (2022)](https://doi.org/10.1038/s43586-022-00184-w)
+"""
 
 from dataclasses import dataclass
 
@@ -19,7 +59,7 @@ __all__ = [
 @atypecheck
 @dataclass
 class PCAOutput:
-    """Principal Component Analysis (PCA) output.
+    """PCA results returned by the `pca` function.
 
     Attributes
     ----------
@@ -112,8 +152,9 @@ class PCAOutput:
         return self._variance_unbiased
 
 
+@atypecheck
 def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
-    """Perform Principal Component Analysis (PCA) on one or several point clouds.
+    """Perform PCA on one or several point clouds.
 
     Parameters
     ----------
@@ -123,24 +164,9 @@ def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
         where the first `n` dimensions are batch dimensions.
         Note that both `n_samples` and `n_features` must be at least 2.
 
-    Notes
-    -----
-    PCA is performed using Singular Value Decomposition (SVD).
-    This function enforces a pure rotation matrix (i.e., no reflection)
-    and a deterministic output.
-    This is done to ensure that the transformation
-    can be applied to chiral data (e.g., atomic coordinates in a molecule),
-    and that the principal components are consistent across different runs.
-    To do so, principal axes are first adjusted such that
-    the loadings in the axes that are largest
-    in absolute value are positive.
-    Subsequently, if the determinant of the resulting principal component matrix
-    is negative, the sign of the last principal axis is flipped.
-
     References
     ----------
     - [Scikit-learn PCA implementation](https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/decomposition/_pca.py#L113)
-    - [Scikit-learn PCA documentation](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html)
     """
     if points.shape[-2] < 2:
         raise exception.InputError(
@@ -170,6 +196,7 @@ def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
 
 
 @jax.jit
+@atypecheck
 def pca_single(
     points: Num[Array, "n_samples n_features"]
 ) -> tuple[
@@ -242,6 +269,7 @@ def pca_single(
 
 
 @jax.jit
+@atypecheck
 def pca_batch(
     points: Num[Array, "n_batches n_samples n_features"]
 ) -> tuple[
