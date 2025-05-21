@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.decomposition import PCA as SklearnPCA
 
 import arrayer
+import arrayer.exception  # used dynamically by eval()
 
 from arrayer_testsuite import data
 
@@ -13,10 +14,13 @@ from arrayer_testsuite import data
 def load_test_cases() -> dict:
     """Load golden and negative test cases from pca.yaml."""
     with open(data.filepath("pca.yaml"), 'r') as f:
-        return yaml.safe_load(f)["cases"]
+        return yaml.safe_load(f)
 
 
-@pytest.mark.parametrize("case", load_test_cases())
+cases = load_test_cases()
+
+
+@pytest.mark.parametrize("case", cases["golden"])
 def pca__golden_file__test(case):
     """Test PCA against golden file expectations."""
     output = arrayer.pca(points=jnp.array(case["input"]["points"]))
@@ -27,6 +31,18 @@ def pca__golden_file__test(case):
         output_value = getattr(output, output_name)
         assert output_value.shape == expected_output_value.shape, f"Shape mismatch in {output_name}: expected {expected_output_value.shape}, got {output_value.shape}."
         assert jnp.allclose(output_value, expected_output_value, atol=1e-6), f"Value mismatch in {output_name}: expected {expected_output_value}, got {output_value}."
+    return
+
+
+@pytest.mark.parametrize("case", cases["negative"])
+def pca__negative_cases__test(case):
+    """Test PCA against negative cases."""
+    for case in cases["negative"]:
+        bad_input = jnp.array(case["input"]["points"])
+        expected_error = eval(case["error"])
+        expected_message = case.get("message", "")
+        with pytest.raises(expected_error, match=expected_message):
+            arrayer.pca(points=bad_input)
     return
 
 
