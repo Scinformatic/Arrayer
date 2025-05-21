@@ -1,12 +1,11 @@
 """Tests for matrix operations and properties."""
 
 import yaml
-from pathlib import Path
 
 import jax.numpy as jnp
 import pytest
+import jaxtyping
 
-import arrayer
 from arrayer.matrix import is_rotation, is_orthogonal, has_unit_determinant
 
 from arrayer_testsuite import data
@@ -30,20 +29,13 @@ def load_test_cases() -> dict:
 def matrix_properties__golden_file__test(function, key: str) -> None:
     """Test matrix property functions against golden file expectations."""
     data = load_test_cases()[key]["golden"]
-
     for case in data:
-        input_matrices = jnp.array(case["input"])
+        input_matrices = jnp.array(case["input"]["matrix"])
         expected = case["expected"]
-
-        result = function(input_matrices)
-
-        if isinstance(expected, list):
-            # Batched result
-            expected_array = jnp.array(expected, dtype=bool)
-            assert jnp.all(result == expected_array), f"Failed case: {case['case']}"
-        else:
-            # Single matrix result
-            assert result is expected, f"Failed case: {case['case']}"
+        result = function(matrix=input_matrices)
+        expected_array = jnp.array(expected, dtype=bool)
+        assert jnp.all(result == expected_array), f"Failed case: {case['case']}"
+    return
 
 
 @pytest.mark.parametrize(
@@ -60,9 +52,9 @@ def matrix_properties__negative_cases__test(func, key: str) -> None:
     data = load_test_cases()[key]["negative"]
 
     for case in data:
-        bad_input = jnp.array(case["input"])
+        bad_input = jnp.array(case["input"]["matrix"])
         expected_error = eval(case["error"])  # Use safe eval if dynamic imports are a concern
         expected_message = case.get("message", "")
 
         with pytest.raises(expected_error, match=expected_message):
-            func(bad_input)
+            func(matrix=bad_input)
