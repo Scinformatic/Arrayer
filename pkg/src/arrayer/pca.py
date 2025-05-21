@@ -1,19 +1,12 @@
 """Principal Component Analysis (PCA)."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-from functools import partial
 
 import jax
-import numpy as np
 import jax.numpy as jnp
 
 from arrayer import exception
-
-if TYPE_CHECKING:
-    from numpy.typing import ArrayLike
+from arrayer.typing import atypecheck, Array, JAXArray, Num
 
 
 __all__ = [
@@ -23,26 +16,20 @@ __all__ = [
     "PCAOutput",
 ]
 
-
+@atypecheck
 @dataclass
 class PCAOutput:
     """Principal Component Analysis (PCA) output.
 
-    Note that all given shapes here
-    are for the case of 2D input data (i.e., shape `(n_samples, n_features)`).
-    For 3D input data (i.e., shape `(n_batches, n_samples, n_features)`),
-    the batch dimension is added as the first axis.
-
     Attributes
     ----------
     points
-        Transformed points in PCA space.
+        Point cloud projected onto the principal components.
         This has the same shape as the input data,
         but each point is centered and rotated
         to align with the principal axes.
     components
-        Principal component matrix.
-        This is a matrix of shape `(n_features, n_features)`,
+        Principal component matrix,
         where each row is a principal component,
         i.e., an eigenvector of the covariance matrix
         (sorted from largest to smallest variance).
@@ -53,10 +40,9 @@ class PCAOutput:
         i.e., any array of shape `(..., n_features)`,
         use `a @ self.components.T`, or the equivalent `np.matmul(a, self.components.T)`.
     singular_values
-        Singular values from SVD.
+        Singular values from SVD corresponding to the principal components.
     translation
-        Translation vector used to center the input data,
-        as a 1D array of shape `(n_features,)`.
+        Translation vector used to center the input data.
 
     Notes
     -----
@@ -67,10 +53,10 @@ class PCAOutput:
       `points_reduced = self.points[..., :k]`, which is equivalent to
       `(input_points + self.translation) @ self.components[:k].T`.
     """
-    points: jnp.ndarray
-    components: jnp.ndarray
-    singular_values: jnp.ndarray
-    translation: jnp.ndarray
+    points: Num[JAXArray, "*n_batches n_samples n_features"]
+    components: Num[JAXArray, "*n_batches n_features n_features"]
+    singular_values: Num[JAXArray, "*n_batches n_features"]
+    translation: Num[JAXArray, "*n_batches n_features"]
 
     def __post_init__(self):
         self._variance_magnitude = None
@@ -80,18 +66,17 @@ class PCAOutput:
         return
 
     @property
-    def variance_magnitude(self) -> jnp.ndarray:
+    def variance_magnitude(self) -> Num[JAXArray, "*n_batches n_features"]:
         """Raw variance magnitudes (i.e., PCA energies) explained by the principal components.
 
         These are the squares of the singular values from SVD.
-        This is a 1D array of shape `(n_features,)`.
         """
         if self._variance_magnitude is None:
             self._variance_magnitude = self.singular_values ** 2
         return self._variance_magnitude
 
     @property
-    def variance_ratio(self) -> jnp.ndarray:
+    def variance_ratio(self) -> Num[JAXArray, "*n_batches n_features"]:
         """Variance ratios explained by the principal components.
 
         These are the raw variance magnitudes `self.variance_magnitude`
@@ -102,7 +87,7 @@ class PCAOutput:
         return self._variance_ratio
 
     @property
-    def variance_biased(self) -> jnp.ndarray:
+    def variance_biased(self) -> Num[JAXArray, "*n_batches n_features"]:
         """Biased variances explained by the principal components.
 
         These are the raw variances `self.variance_magnitude`
@@ -114,7 +99,7 @@ class PCAOutput:
         return self._variance_biased
 
     @property
-    def variance_unbiased(self) -> jnp.ndarray:
+    def variance_unbiased(self) -> Num[JAXArray, "*n_batches n_features"]:
         """Unbiased variances explained by the principal components.
 
         These are the raw variances `self.variance_magnitude`
@@ -127,14 +112,16 @@ class PCAOutput:
         return self._variance_unbiased
 
 
-def pca(points: ArrayLike) -> PCAOutput:
-    """Perform Principal Component Analysis (PCA) on a set of points.
+def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
+    """Perform Principal Component Analysis (PCA) on one or several point clouds.
 
     Parameters
     ----------
     points
-        Input data of shape `(n_samples, n_features)`
-        or `(n_batches, n_samples, n_features)`.
+        Input data as a numeric (real or complex-valued)
+        (n + 2)D array (n >= 0) of shape `(..., n_samples, n_features)`,
+        where the first `n` dimensions are batch dimensions.
+        Note that both `n_samples` and `n_features` must be at least 2.
 
     Notes
     -----
@@ -155,7 +142,6 @@ def pca(points: ArrayLike) -> PCAOutput:
     - [Scikit-learn PCA implementation](https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/decomposition/_pca.py#L113)
     - [Scikit-learn PCA documentation](https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html)
     """
-    points = jnp.asarray(points)
     if points.shape[-2] < 2:
         raise exception.InputError(
             name="points",
@@ -169,49 +155,80 @@ def pca(points: ArrayLike) -> PCAOutput:
             problem=f"At least 2 features are required, but got {points.shape[1]}."
         )
     if points.ndim == 2:
-        func = pca_single
+        return PCAOutput(*pca_single(points))
     elif points.ndim == 3:
-        func = pca_batch
-    else:
-        raise exception.InputError(
-            name="points",
-            value=points,
-            problem=f"Points must be a 2D or 3D array, but is {points.ndim}D."
-        )
-    return PCAOutput(*func(points))
+        return PCAOutput(*pca_batch(points))
+    points_reshaped = points.reshape(-1, *points.shape[-2:])
+    points_transformed, components, singular_values, translation_vector = pca_batch(points_reshaped)
+    batch_shape = points.shape[:-2]
+    return PCAOutput(
+        points=points_transformed.reshape(points.shape),
+        components=components.reshape(*batch_shape, components.shape[-2:]),
+        singular_values=singular_values.reshape(*batch_shape, singular_values.shape[-1]),
+        translation=translation_vector.reshape(*batch_shape, translation_vector.shape[-1]),
+    )
 
 
 @jax.jit
 def pca_single(
-    points: jnp.ndarray
-) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-    """Perform PCA on a single set of points with shape `(n_samples, n_features)`."""
+    points: Num[Array, "n_samples n_features"]
+) -> tuple[
+    Num[JAXArray, "n_samples n_features"],
+    Num[JAXArray, "n_features n_features"],
+    Num[JAXArray, "n_features"],
+    Num[JAXArray, "n_features"],
+]:
+    """Perform PCA on a single point cloud.
+
+    Parameters
+    ----------
+    points
+        Point cloud as a numeric (real or complex-valued)
+        2D array of shape `(n_samples, n_features)`,
+        representing `n_samples` points in `n_features` dimensions.
+        Note that both `n_samples` and `n_features` must be at least 2.
+
+    Returns
+    -------
+    A 4-tuple corresponding to the input arguments of `arrayer.pca.PCAOutput`.
+    """
+    points = jnp.asarray(points)
+
     # Center points
     center = jnp.mean(points, axis=0)
     translation_vector = -center
     points_centered = points + translation_vector
 
     # SVD decomposition
-    u, singular_values, vt = jnp.linalg.svd(points_centered, full_matrices=False)
+    # (u: left singular vectors, s: singular values, vh: conjugate-transposed right singular vectors)
+    u, s, vh = jnp.linalg.svd(points_centered, full_matrices=False)
 
-    # Flip eigenvectors' signs to enforce deterministic output
-    # Ref: https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/utils/extmath.py#L895
-    max_abs_v_rows = jnp.argmax(jnp.abs(vt), axis=1)
-    shift = jnp.arange(vt.shape[0])
-    signs = jnp.sign(vt[shift, max_abs_v_rows])
-    u = u * signs[None, :]
-    vt = vt * signs[:, None]
+    if jnp.iscomplexobj(points):
+        # For complex eigenvectors, the phase is arbitrary, and so
+        # flipping signs and handedness are undefined and unnecessary.
+        # We thus skip the sign flipping and handedness corrections.
+        # On the other hand, Vh is now the conjugate transpose of V.
+        points_transformed = points_centered @ vh.conj().T
+    else:
+        # Flip eigenvectors' signs to enforce deterministic output
+        # Ref: https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/utils/extmath.py#L895
+        max_abs_v_rows = jnp.argmax(jnp.abs(vh), axis=1)
+        shift = jnp.arange(vh.shape[0])
+        signs = jnp.sign(vh[shift, max_abs_v_rows])
+        u *= signs[None, :]
+        vh *= signs[:, None]
 
-    # Enforce right-handed coordinate system,
-    # i.e., no reflections (determinant must be +1 and not -1)
-    det_vt = jnp.linalg.det(vt)
-    flip_factor = jnp.where(det_vt < 0, -1.0, 1.0)
-    # Flip last row of vt and last column of u (if needed)
-    components = vt.at[-1].multiply(flip_factor)  # flip last principal component
-    u = u.at[:, -1].multiply(flip_factor)  # adjust projected data to match
+        # Enforce right-handed coordinate system,
+        # i.e., no reflections (determinant must be +1 and not -1)
+        det_vt = jnp.linalg.det(vh)
+        flip_factor = jnp.where(det_vt < 0, -1.0, 1.0)
+        # Flip last row of vt and last column of u (if needed)
+        vh = vh.at[-1].multiply(flip_factor)  # flip last principal component
+        u = u.at[:, -1].multiply(flip_factor)  # adjust projected data to match
 
-    # Transformed points (projection)
-    points_transformed = u * singular_values  # equal to `points_centered @ vt.T`
+        # Transformed points (projection)
+        # For real data, `u * s` is equal to `points_centered @ vh.conj().T`.
+        points_transformed = u * s
 
     # Note that the same can be achieved by eigen decomposition of the covariance matrix:
     #     covariance_matrix = np.cov(points_centered, rowvar=False)
@@ -221,8 +238,35 @@ def pca_single(
     #     principal_components = eigenvectors[:, sorted_indices].T
     #     points_transformed = points @ principal_components
 
-    return points_transformed, components, singular_values, translation_vector
+    return points_transformed, vh, s, translation_vector
 
 
-pca_batch = jax.vmap(pca_single)
-"""Perform PCA on a batch of points with shape `(n_batches, n_samples, n_features)`."""
+@jax.jit
+def pca_batch(
+    points: Num[Array, "n_batches n_samples n_features"]
+) -> tuple[
+    Num[JAXArray, "n_batches n_samples n_features"],
+    Num[JAXArray, "n_batches n_features n_features"],
+    Num[JAXArray, "n_batches n_features"],
+    Num[JAXArray, "n_batches n_features"],
+]:
+    """Perform PCA on a batch of point clouds.
+
+    Parameters
+    ----------
+    points
+        Batch of point clouds as a numeric (real or complex-valued)
+        3D array of shape `(n_batches, n_samples, n_features)`,
+        representing `n_batches` point clouds each with
+        `n_samples` points in `n_features` dimensions.
+        Note that both `n_samples` and `n_features` must be at least 2.
+
+    Returns
+    -------
+    A 4-tuple corresponding to the input arguments of `arrayer.pca.PCAOutput`.
+    """
+    points = jnp.asarray(points)
+    return _pca_batch(points)
+
+
+_pca_batch = jax.vmap(pca_single)
