@@ -1,8 +1,12 @@
 """Principal Component Analysis ([PCA](https://en.wikipedia.org/wiki/Principal_component_analysis)).
 
-This module provides functionalities to
-perform PCA on a real or complex-valued point cloud, or batch thereof,
+This module provides functionalities to perform PCA
+on real or complex-valued point clouds
 using Singular Value Decomposition ([SVD](https://en.wikipedia.org/wiki/Singular_value_decomposition)).
+Input data can be arrays of shape `(n_samples, n_features)`
+representing `n_samples` points in `n_features` dimensions,
+or batches of point clouds with shape `(*n_batches, n_samples, n_features)`,
+where `*n_batches` can be any number of leading batch dimensions.
 
 End users should call the `pca` function,
 which automatically handles different input data shapes,
@@ -159,9 +163,10 @@ def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
     Parameters
     ----------
     points
-        Input data as a numeric (real or complex-valued)
-        (n + 2)D array (n >= 0) of shape `(..., n_samples, n_features)`,
-        where the first `n` dimensions are batch dimensions.
+        Point cloud(s) as a real or complex-valued array of
+        shape `(*n_batches, n_samples, n_features)`,
+        where `*n_batches` is zero or more batch dimensions,
+        holding point clouds with `n_samples` points in `n_features` dimensions.
         Note that both `n_samples` and `n_features` must be at least 2.
 
     References
@@ -210,7 +215,7 @@ def pca_single(
     Parameters
     ----------
     points
-        Point cloud as a numeric (real or complex-valued)
+        Point cloud as a real or complex-valued
         2D array of shape `(n_samples, n_features)`,
         representing `n_samples` points in `n_features` dimensions.
         Note that both `n_samples` and `n_features` must be at least 2.
@@ -283,7 +288,7 @@ def pca_batch(
     Parameters
     ----------
     points
-        Batch of point clouds as a numeric (real or complex-valued)
+        Batch of point clouds as a real or complex-valued
         3D array of shape `(n_batches, n_samples, n_features)`,
         representing `n_batches` point clouds each with
         `n_samples` points in `n_features` dimensions.
