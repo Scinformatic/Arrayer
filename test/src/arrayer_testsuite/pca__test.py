@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import pytest
 import yaml
 import jax.numpy as jnp
@@ -31,25 +32,25 @@ def pca__golden_file__test(case):
 
 def pca__batch_vs_single__test():
     """Test PCA batch vs single outputs."""
-    n_batches = 10
-    n_points = 100
-    for n_features in (2, 3, 4):
-        points = np.random.rand(n_batches, n_points, n_features)
-        output_batch = arrayer.pca(points)
+    n_samples = 100
+    for batch_shape in ((5,), (6, 7), (8, 9, 10)):
+        for n_features in (2, 3, 4):
+            points = np.random.rand(*batch_shape, n_samples, n_features)
+            output_batch = arrayer.pca(points)
 
-        # Verify output shapes
-        output_batch_shapes = get_expected_output_shapes(n_batches, n_points, n_features)
-        for output_name, expected_shape in output_batch_shapes.items():
-            value = getattr(output_batch, output_name)
-            assert value.shape == expected_shape, f"Shape mismatch in {output_name}: expected {expected_shape}, got {value.shape}."
+            # Verify output shapes
+            output_batch_shapes = get_expected_output_shapes(batch_shape, n_samples, n_features)
+            for output_name, expected_shape in output_batch_shapes.items():
+                value = getattr(output_batch, output_name)
+                assert value.shape == expected_shape, f"Shape mismatch in {output_name}: expected {expected_shape}, got {value.shape}."
 
-        # Verify batch vs single output
-        for batch_idx in range(n_batches):
-            output_single = arrayer.pca(points[batch_idx])
-            for output_name in output_batch_shapes.keys():
-                value_batch = getattr(output_batch, output_name)[batch_idx]
-                value_single = getattr(output_single, output_name)
-                assert jnp.allclose(value_batch, value_single, atol=1e-6), f"Value mismatch in {output_name} for batch {batch_idx}: expected {value_single}, got {value_batch}."
+            # Verify batch vs single output
+            for batch_idx in np.ndindex(*batch_shape):
+                output_single = arrayer.pca(points[batch_idx])
+                for output_name in output_batch_shapes.keys():
+                    value_batch = getattr(output_batch, output_name)[batch_idx]
+                    value_single = getattr(output_single, output_name)
+                    assert jnp.allclose(value_batch, value_single, atol=1e-6), f"Value mismatch in {output_name} for batch {batch_idx}: expected {value_single}, got {value_batch}."
 
 
 def pca__sklearn_comparison__test():
@@ -83,7 +84,7 @@ def pca__sklearn_comparison__test():
                 assert jnp.allclose(arrayer_value, sklearn_value, atol=1e-5), f"Value mismatch in {output_name}: expected {sklearn_value}, got {arrayer_value}."
 
 
-def get_expected_output_shapes(n_batches: int | None, n_samples: int, n_features: int) -> dict:
+def get_expected_output_shapes(batch_shape: Sequence[int] | None, n_samples: int, n_features: int) -> dict:
     """Get expected output shapes for PCA."""
     shape_single = {
         "points": (n_samples, n_features),
@@ -95,4 +96,4 @@ def get_expected_output_shapes(n_batches: int | None, n_samples: int, n_features
         "variance_biased": (n_features,),
         "variance_unbiased": (n_features,),
     }
-    return shape_single if n_batches is None else {k: (n_batches, *v) for k, v in shape_single.items()}
+    return shape_single if batch_shape is None else {k: (*batch_shape, *v) for k, v in shape_single.items()}
