@@ -11,7 +11,7 @@ where `*n_batches` can be any number of leading batch dimensions.
 End users should call the `pca` function,
 which automatically handles different input data shapes,
 performs the necessary checks,
-and returns a `PCAOutput` object containing the results.
+and returns a `PCAOutput` object containing the results in appropriate shapes.
 The `pca_single` and `pca_batch` functions
 are lower-level [JAX-jitted](https://docs.jax.dev/en/latest/jit-compilation.html) functions
 that perform PCA on a single point cloud
@@ -194,8 +194,8 @@ def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
     points_transformed, components, singular_values, translation_vector = pca_batch(points_reshaped)
     batch_shape = points.shape[:-2]
     return PCAOutput(
-        points=points_transformed.reshape(points.shape),
-        components=components.reshape(*batch_shape, components.shape[-2:]),
+        points=points_transformed.reshape(*points.shape),
+        components=components.reshape(*batch_shape, *components.shape[-2:]),
         singular_values=singular_values.reshape(*batch_shape, singular_values.shape[-1]),
         translation=translation_vector.reshape(*batch_shape, translation_vector.shape[-1]),
     )
