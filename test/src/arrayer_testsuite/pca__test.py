@@ -18,7 +18,7 @@ def load_test_cases() -> dict:
 @pytest.mark.parametrize("case", load_test_cases())
 def pca__golden_file__test(case):
     """Test PCA against golden file expectations."""
-    output = arrayer.pca(**case["input"])
+    output = arrayer.pca(points=jnp.array(case["input"]["points"]))
     expected_output = case["output"]
 
     for output_name, expected_output_value in expected_output.items():
