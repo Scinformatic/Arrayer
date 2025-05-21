@@ -1,4 +1,4 @@
-cases:
+golden:
   - case: identity_matrix
     input:
       points: [[1.0, 0.0], [0.0, 1.0]]
@@ -25,4 +25,14 @@ cases:
       translation:
         - [-0.5, -0.5]
         - [-1.0, -1.0]
-
+negative:
+  - case: too_few_samples
+    input:
+      points: [[1.0, 0.0]]
+    error: arrayer.exception.InputError
+    message: At least 2 samples are required, but got 1
+  - case: too_few_features
+    input:
+      points: [[1.0], [0.0]]
+    error: arrayer.exception.InputError
+    message: At least 2 features are required, but got 1
