@@ -37,6 +37,7 @@ Notes
   the loadings in the axes that are largest in absolute value are positive.
   Subsequently, if the determinant of the resulting principal component matrix
   is negative, the sign of the last principal axis is flipped.
+- SVD is performed using [`jax.lax.linalg.svd`](https://docs.jax.dev/en/latest/_autosummary/jax.lax.linalg.svd.html).
 
 References
 ----------
@@ -233,7 +234,7 @@ def pca_single(
 
     # SVD decomposition
     # (u: left singular vectors, s: singular values, vh: conjugate-transposed right singular vectors)
-    u, s, vh = jnp.linalg.svd(points_centered, full_matrices=False)
+    u, s, vh = jax.lax.linalg.svd(points_centered, full_matrices=False)
 
     if jnp.iscomplexobj(points):
         # For complex eigenvectors, the phase is arbitrary, and so
