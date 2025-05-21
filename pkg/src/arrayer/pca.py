@@ -1,6 +1,6 @@
 """Principal Component Analysis ([PCA](https://en.wikipedia.org/wiki/Principal_component_analysis)).
 
-This module provides functionalities to perform PCA
+This module provides functionalities for performing PCA
 on real or complex-valued point clouds
 using Singular Value Decomposition ([SVD](https://en.wikipedia.org/wiki/Singular_value_decomposition)).
 Input data can be arrays of shape `(n_samples, n_features)`
