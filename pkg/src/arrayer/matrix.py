@@ -88,7 +88,7 @@ def is_orthogonal(
     A JAX boolean array of shape `(*n_batches,)`,
     where each element indicates whether the corresponding matrix is orthogonal.
     """
-    transposed_matrix = jnp.swapaxes(matrix, -1, -2)
+    transposed_matrix = jnp.swapaxes(matrix, -2, -1)
     gram_matrix = transposed_matrix @ matrix
     identity_matrix = jnp.eye(matrix.shape[-1], dtype=matrix.dtype)
     deviation = jnp.abs(gram_matrix - identity_matrix)
