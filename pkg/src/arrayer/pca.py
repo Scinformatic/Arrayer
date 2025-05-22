@@ -174,18 +174,6 @@ def pca(points: Num[Array, "*n_batches n_samples n_features"]) -> PCAOutput:
     ----------
     - [Scikit-learn PCA implementation](https://github.com/scikit-learn/scikit-learn/blob/aa21650bcfbebeb4dd346307931dd1ed14a6f434/sklearn/decomposition/_pca.py#L113)
     """
-    if (n_samples := points.shape[-2]) < 2:
-        raise exception.InputError(
-            name="points",
-            value=points,
-            problem=f"At least 2 samples are required, but got {n_samples}."
-        )
-    if (n_features := points.shape[-1]) < 2:
-        raise exception.InputError(
-            name="points",
-            value=points,
-            problem=f"At least 2 features are required, but got {n_features}."
-        )
     if points.ndim == 2:
         return PCAOutput(*pca_single(points))
     elif points.ndim == 3:
@@ -225,6 +213,18 @@ def pca_single(
     -------
     A 4-tuple corresponding to the input arguments of `arrayer.pca.PCAOutput`.
     """
+    if (n_samples := points.shape[0]) < 2:
+        raise exception.InputError(
+            name="points",
+            value=points,
+            problem=f"At least 2 samples are required, but got {n_samples}."
+        )
+    if (n_features := points.shape[1]) < 2:
+        raise exception.InputError(
+            name="points",
+            value=points,
+            problem=f"At least 2 features are required, but got {n_features}."
+        )
     points = jnp.asarray(points)
 
     # Center points
