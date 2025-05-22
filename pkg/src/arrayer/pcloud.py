@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def cylinder(
+def make_cylinder(
     radius: float = 0.05,
     n_points: int = 1000,
     start: tuple[float, float, float] = (0, 0, -1),
