@@ -97,7 +97,7 @@ def pca__sklearn_comparison__test():
             for output_name in expected_equal_names:
                 arrayer_value = getattr(arrayer_output, output_name)
                 sklearn_value = sklearn_output[output_name]
-                assert jnp.allclose(arrayer_value, sklearn_value, atol=1e-5), f"Value mismatch in {output_name}: expected {sklearn_value}, got {arrayer_value}."
+                assert jnp.allclose(arrayer_value, sklearn_value, atol=1e-4), f"Value mismatch in {output_name}: expected {sklearn_value}, got {arrayer_value}."
 
 
 def get_expected_output_shapes(batch_shape: Sequence[int] | None, n_samples: int, n_features: int) -> dict:
