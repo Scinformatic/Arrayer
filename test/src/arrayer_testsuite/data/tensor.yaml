@@ -1,0 +1,146 @@
+argin:
+  golden:
+    - case: single_0d_1d_pos
+      input:
+        element: 11
+        test_elements: &test_elements_1d [10, 11, 12]
+      expected: 1
+    - case: single_0d_1d_neg
+      input:
+        element: 9
+        test_elements: *test_elements_1d
+      expected: -1
+    - case: single_0d_2d_pos
+      input:
+        element: 12
+        test_elements: &test_elements_2d [ [10, 11], [12, 13] ]
+      expected: [1, 0]
+    - case: single_0d_2d_neg
+      input:
+        element: 9
+        test_elements: *test_elements_2d
+      expected: [-1, -1]
+    - case: single_0d_3d_pos
+      input:
+        element: 13
+        test_elements: &test_elements_3d [ [ [10, 11], [12, 13] ], [ [14, 15], [16, 17] ] ]
+      expected: [0, 1, 1]
+    - case: single_0d_3d_neg
+      input:
+        element: 9
+        test_elements: *test_elements_3d
+      expected: [-1, -1, -1]
+    - case: single_1d_2d_pos
+      input:
+        element: [10, 11]
+        test_elements: *test_elements_2d
+      expected: 0
+    - case: single_1d_2d_neg
+      input:
+        element: [14, 15]
+        test_elements: *test_elements_2d
+      expected: -1
+    - case: single_1d_3d_pos
+      input:
+        element: [12, 13]
+        test_elements: *test_elements_3d
+      expected: [0, 1]
+    - case: single_1d_3d_neg
+      input:
+        element: [17, 18]
+        test_elements: *test_elements_3d
+      expected: [-1, -1]
+    - case: single_2d_3d_pos
+      input:
+        element: [ [10, 11], [12, 13] ]
+        test_elements: *test_elements_3d
+      expected: 0
+    - case: single_2d_3d_neg
+      input:
+        element: [ [13, 15], [16, 17] ]
+        test_elements: *test_elements_3d
+      expected: -1
+    - case: batch1d_0d_1d_pos
+      input:
+        element: [11, 12]
+        test_elements: *test_elements_1d
+        batch_ndim: 1
+      expected: [1, 2]
+    - case: batch1d_0d_1d_mix
+      input:
+        element: [9, 11, 12]
+        test_elements: *test_elements_1d
+        batch_ndim: 1
+      expected: [-1, 1, 2]
+    - case: batch1d_0d_1d_neg
+      input:
+        element: [8, 9]
+        test_elements: *test_elements_1d
+        batch_ndim: 1
+      expected: [-1, -1]
+    - case: batch1d_0d_2d_pos
+      input:
+        element: [11, 12]
+        test_elements: *test_elements_2d
+        batch_ndim: 1
+      expected: [[0, 1], [1, 0]]
+    - case: batch1d_0d_2d_mix
+      input:
+        element: [9, 11, 12]
+        test_elements: *test_elements_2d
+        batch_ndim: 1
+      expected: [[-1, -1], [0, 1], [1, 0]]
+    - case: batch1d_0d_2d_neg
+      input:
+        element: [8, 9]
+        test_elements: *test_elements_2d
+        batch_ndim: 1
+      expected: [[-1, -1], [-1, -1]]
+    - case: batch1d_0d_3d_pos
+      input:
+        element: [13, 14]
+        test_elements: *test_elements_3d
+        batch_ndim: 1
+      expected: [[0, 1, 1], [1, 0, 0]]
+    - case: batch1d_0d_3d_mix
+      input:
+        element: [9, 13, 14]
+        test_elements: *test_elements_3d
+        batch_ndim: 1
+      expected: [[-1, -1, -1], [0, 1, 1], [1, 0, 0]]
+    - case: batch1d_0d_3d_neg
+      input:
+        element: [8, 9]
+        test_elements: *test_elements_3d
+        batch_ndim: 1
+      expected: [[-1, -1, -1], [-1, -1, -1]]
+    - case: batch2d_0d_1d_pos
+      input:
+        element: [[11, 12], [12, 10]]
+        test_elements: *test_elements_1d
+        batch_ndim: 2
+      expected: [[1, 2], [2, 0]]
+    - case: batch2d_0d_1d_mix
+      input:
+        element: [[9, 10, 11], [11, 12, 13]]
+        test_elements: *test_elements_1d
+        batch_ndim: 2
+      expected: [[-1, 0, 1], [1, 2, -1]]
+    - case: batch2d_0d_1d_neg
+      input:
+        element: [[8, 9], [10, 11]]
+        test_elements: *test_elements_1d
+        batch_ndim: 2
+      expected: [[-1, -1], [0, 1]]
+    - case: batch2d_0d_2d_pos
+      input:
+        element: [[11, 12], [12, 10]]
+        test_elements: *test_elements_2d
+        batch_ndim: 2
+      expected: [[[0, 1], [1, 0]], [[1, 0], [0, 0]]]
+    - case: batch2d_0d_2d_mix
+      input:
+        element: [[9, 10, 11], [11, 12, 13]]
+        test_elements: *test_elements_2d
+        batch_ndim: 2
+      expected: [[[-1, -1], [0, 0], [0, 1]], [[0, 1], [1, 0], [1, 1]]]
