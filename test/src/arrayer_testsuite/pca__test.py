@@ -18,6 +18,7 @@ def load_test_cases() -> dict:
 
 
 cases = load_test_cases()
+np.random.seed(42)  # Set seed for reproducibility
 
 
 @pytest.mark.parametrize("case", cases["golden"])
