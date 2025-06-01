@@ -1,6 +1,109 @@
 """Generate point clouds in different shapes and orientations."""
 
+from functools import partial
+
+import jax
+import jax.numpy as jnp
 import numpy as np
+
+from arrayer import exception
+from arrayer.typing import atypecheck, Array, JAXArray, Num
+
+
+@partial(jax.jit, static_argnames=('per_instance',))
+@atypecheck
+def bounds(
+    points: Num[Array, "*n_batches n_samples n_features"],
+    per_instance: bool = True,
+) -> tuple[
+    Num[JAXArray, "*n_batches n_features"] | Num[JAXArray, "n_features"],
+    Num[JAXArray, "*n_batches n_features"] | Num[JAXArray, "n_features"],
+]:
+    """Calculate lower and upper bounds of point cloud coordinates.
+
+    Compute the minimum and maximum coordinates along the point dimension for
+    one or several point clouds. Supports per-instance or global computation.
+
+    Parameters
+    ----------
+    points
+        Point cloud(s) as an array of shape `(*n_batches, n_samples, n_features)`,
+        where `*n_batches` is zero or more batch dimensions,
+        holding point clouds with `n_samples` points in `n_features` dimensions.
+    per_instance
+        If True, compute bounds separately for each instance,
+        yielding arrays of shape `(*n_batches, n_features)`.
+        If False, compute bounds over all instances superposed,
+        yielding arrays of shape `(n_features,)`.
+
+    Returns
+    -------
+    lower_bounds
+        Minimum values per dimension.
+    upper_bounds
+        Maximum values per dimension.
+    """
+    if points.ndim < 2:
+        raise exception.InputError(
+            name="points",
+            value=points,
+            problem=f"At least a 2D array is required, but got {points.ndim}D array with shape {points.shape}."
+        )
+    # If per_instance, reduce over the points axis (-2) only, preserving batch dimensions,
+    # otherwise reduce over all axes except the last (dimension axis).
+    axis = -2 if per_instance else tuple(range(points.ndim - 1))
+    lower_bounds = jnp.min(points, axis=axis)
+    upper_bounds = jnp.max(points, axis=axis)
+    return lower_bounds, upper_bounds
+
+
+@partial(jax.jit, static_argnames=('per_instance',))
+@atypecheck
+def aabb(
+    points: Num[Array, "*n_batches n_samples n_features"],
+    per_instance: bool = True,
+) -> tuple[
+    Num[JAXArray, "*n_batches n_features"] | Num[JAXArray, "n_features"],
+    Num[JAXArray, "*n_batches n_features"] | Num[JAXArray, "n_features"],
+    Num[JAXArray, "*n_batches"] | Num[JAXArray, ""],
+    Num[JAXArray, "*n_batches"] | Num[JAXArray, ""],
+]:
+    """Calculate lower and upper bounds of point cloud coordinates.
+
+    Compute the minimum and maximum coordinates along the point dimension for
+    one or several point clouds. Supports per-instance or global computation.
+
+    Parameters
+    ----------
+    points
+        Point cloud(s) as an array of shape `(*n_batches, n_samples, n_features)`,
+        where `*n_batches` is zero or more batch dimensions,
+        holding point clouds with `n_samples` points in `n_features` dimensions.
+    per_instance
+        If True, compute bounds separately for each instance,
+        yielding arrays of shape `(*n_batches, n_features)`.
+        If False, compute bounds over all instances superposed,
+        yielding arrays of shape `(n_features,)`.
+
+    Returns
+    -------
+    lower_bounds
+        Minimum values per dimension.
+    upper_bounds
+        Maximum values per dimension.
+    """
+    if points.ndim < 2:
+        raise exception.InputError(
+            name="points",
+            value=points,
+            problem=f"At least a 2D array is required, but got {points.ndim}D array with shape {points.shape}."
+        )
+    # If per_instance, reduce over the points axis (-2) only, preserving batch dimensions,
+    # otherwise reduce over all axes except the last (dimension axis).
+    axis = -2 if per_instance else tuple(range(points.ndim - 1))
+    lower_bounds = jnp.min(points, axis=axis)
+    upper_bounds = jnp.max(points, axis=axis)
+    return lower_bounds, upper_bounds
 
 
 def make_cylinder(
