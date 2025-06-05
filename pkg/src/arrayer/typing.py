@@ -5,7 +5,7 @@ import jax
 import numpy as np
 from beartype import beartype
 from beartype.vale import Is
-from jaxtyping import jaxtyped, Num, Bool, Float
+from jaxtyping import jaxtyped, Num, Bool, Float, Int
 
 
 __all__ = [
