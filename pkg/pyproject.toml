@@ -23,6 +23,6 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "jax",
-    "beartype",
-    "jaxtyping",
+    "beartype",   # https://github.com/beartype/beartype
+    "jaxtyping",  # https://github.com/patrick-kidger/jaxtyping
 ]
