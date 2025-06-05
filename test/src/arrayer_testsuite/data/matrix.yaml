@@ -85,3 +85,9 @@ linearly_dependent_pairs:
           - [-1, -2, -3]  # anti-parallel to row 0
           - [0, 1, 0]
       expected: [[0, 1], [0, 2], [1, 2]]
+  negative:
+    - case: 3D_matrix
+      input:
+        matrix: [ [[1, 0], [0, 1]], [[0, 1], [1, 0]] ]
+      error: jaxtyping.TypeCheckError
+      message: Type-check error whilst checking the parameters of arrayer.matrix.linearly_dependent_pairs
