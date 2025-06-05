@@ -75,3 +75,13 @@ has_unit_determinant:
         matrix: [ [1,0,0], [0,1,0] ]
       error: jaxtyping.TypeCheckError
       message: Type-check error whilst checking the parameters of arrayer.matrix.has_unit_determinant
+linearly_dependent_pairs:
+  golden:
+    - case: mixed
+      input:
+        matrix:
+          - [1, 2, 3]
+          - [2, 4, 6]     # parallel to row 0
+          - [-1, -2, -3]  # anti-parallel to row 0
+          - [0, 1, 0]
+      expected: [[0, 1], [0, 2], [1, 2]]
