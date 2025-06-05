@@ -10,7 +10,7 @@ import jax
 import jax.numpy as jnp
 import jax.scipy as jsp
 
-from arrayer.typing import atypecheck, Array, JAXArray, Num, Bool, Float
+from arrayer.typing import atypecheck, Array, JAXArray, Num, Bool, Float, Int
 
 
 __all__ = [
@@ -127,3 +127,49 @@ def has_unit_determinant(
       [`jax.scipy.linalg.det`](https://docs.jax.dev/en/latest/_autosummary/jax.scipy.linalg.det.html).
     """
     return jnp.abs(jsp.linalg.det(matrix) - 1.0) <= tol
+
+
+@atypecheck
+def linearly_dependent_pairs(
+    matrix: Num[Array, "n_rows n_columns"],
+    rtol: float = 1e-6,
+    atol: float = 1e-8,
+    equal_nan: bool = False,
+) -> Int[JAXArray, "n_pairs 2"]:
+    """Find index pairs of row vectors that are linearly dependent.
+
+    Two vectors are considered linearly dependent if one is a scalar multiple of the other.
+    This includes both parallel and anti-parallel vectors.
+
+    Parameters
+    ----------
+    matrix
+        2D matrix of shape `(n_rows, n_columns)`,
+        where each row is a `n_columns`-dimensional vector.
+    rtol
+        Relative tolerance for floating-point comparison.
+    atol
+        Absolute tolerance for floating-point comparison.
+    equal_nan
+        Treat NaNs as equal.
+
+    Returns
+    -------
+    Index pairs (i, j) with i < j such that `matrix[i]` and `matrix[j]` are linearly dependent.
+    """
+    # Normalize vectors
+    norms = jnp.linalg.norm(matrix, axis=1)
+    unit = matrix / norms[:, None]
+    # Compute cosine similarity matrix (absolute value to catch both parallel and anti-parallel)
+    cos_sim = unit @ unit.T
+    abs_cos_sim = jnp.abs(cos_sim)
+    # Ignore diagonal
+    abs_cos_sim = abs_cos_sim - jnp.eye(abs_cos_sim.shape[0])
+    # Get upper triangle mask (i < j)
+    mask = jnp.triu(jnp.ones_like(abs_cos_sim, dtype=bool), k=1)
+    # Condition for linear dependence: |cos_sim| ≈ 1.0
+    linear_dep = jnp.isclose(abs_cos_sim, 1.0, rtol=rtol, atol=atol, equal_nan=equal_nan)
+    # Apply mask to get (i, j) indices
+    valid = jnp.logical_and(mask, linear_dep)
+    i, j = jnp.where(valid)
+    return jnp.stack((i, j), axis=1)
