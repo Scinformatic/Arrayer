@@ -6,9 +6,17 @@ import jax.numpy as jnp
 import pytest
 import jaxtyping as jaxtyping  # used dynamically by eval()
 
-from arrayer.matrix import is_rotation, is_orthogonal, has_unit_determinant
+from arrayer import matrix
 
 from arrayer_testsuite import data
+
+function_names = [
+    "is_rotation",
+    "is_orthogonal",
+    "has_unit_determinant",
+    "linearly_dependent_pairs",
+]
+func_key_pairs = [(getattr(matrix, name), name) for name in function_names]
 
 
 def load_test_cases() -> dict:
@@ -17,44 +25,28 @@ def load_test_cases() -> dict:
         return yaml.safe_load(f)
 
 
-@pytest.mark.parametrize(
-    "function, key",
-    [
-        (is_rotation, "is_rotation"),
-        (is_orthogonal, "is_orthogonal"),
-        (has_unit_determinant, "has_unit_determinant"),
-    ],
-    ids=["is_rotation", "is_orthogonal", "has_unit_determinant"]
-)
+cases = load_test_cases()
+
+
+@pytest.mark.parametrize("function, key", func_key_pairs, ids=function_names)
 def matrix_properties__golden_file__test(function, key: str) -> None:
     """Test matrix property functions against golden file expectations."""
-    data = load_test_cases()[key]["golden"]
-    for case in data:
+    for case in cases[key]["golden"]:
         input_matrices = jnp.array(case["input"]["matrix"])
         expected = case["expected"]
         result = function(matrix=input_matrices)
-        expected_array = jnp.array(expected, dtype=bool)
+        expected_array = jnp.array(expected)
         assert jnp.all(result == expected_array), f"Failed case: {case['case']}"
     return
 
 
-@pytest.mark.parametrize(
-    "func, key",
-    [
-        (is_rotation, "is_rotation"),
-        (is_orthogonal, "is_orthogonal"),
-        (has_unit_determinant, "has_unit_determinant"),
-    ],
-    ids=["is_rotation", "is_orthogonal", "has_unit_determinant"]
-)
-def matrix_properties__negative_cases__test(func, key: str) -> None:
+@pytest.mark.parametrize("function, key", func_key_pairs, ids=function_names)
+def matrix_properties__negative_cases__test(function, key: str) -> None:
     """Test functions raise expected exceptions on invalid input."""
-    data = load_test_cases()[key]["negative"]
-
-    for case in data:
+    for case in cases[key]["negative"]:
         bad_input = jnp.array(case["input"]["matrix"])
         expected_error = eval(case["error"])
         expected_message = case.get("message", "")
-
         with pytest.raises(expected_error, match=expected_message):
-            func(matrix=bad_input)
+            function(matrix=bad_input)
+    return
