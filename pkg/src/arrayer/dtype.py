@@ -22,7 +22,7 @@ def smallest_integer(minimum: int | float, maximum: int | float) -> type[np.inte
 
     if not np.issubdtype(type(minimum), np.integer) or not np.issubdtype(type(maximum), np.integer):
         raise ValueError(
-            "Parameters `min_val` and `max_val` expect integer values. "
+            "Parameters `minimum` and `maximum` expect integer values. "
             f"Input was {minimum, maximum}"
         )
     if minimum > maximum:
