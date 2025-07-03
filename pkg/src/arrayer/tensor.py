@@ -12,7 +12,7 @@ from arrayer.typing import Array
 from arrayer import exception
 
 if TYPE_CHECKING:
-    from typing import Any, Sequence
+    from typing import Any, Sequence, Literal
     from arrayer.typing import JAXArray
 
 __all__ = [
@@ -21,6 +21,92 @@ __all__ = [
     "argin_single",
     "argin_batch",
 ]
+
+
+def indices_sorted_by_value(
+    tensor: Array,
+    first: Literal["min", "max"] = "min",
+    threshold: float | None = None,
+    include_equal: bool = True,
+    mask: Array | None = None,
+    max_elements: int | None = None,
+) -> JAXArray:
+    """Get the indices of tensor elements sorted by their value.
+
+    Parameters
+    ----------
+    tensor
+        Input tensor to find element indices in.
+    first
+        - "min": Sort indices from smallest to largest values.
+        - "max": Sort indices from largest to smallest values.
+    threshold
+        Optional threshold value; if provided,
+        - for "min", only indices of elements equal to or below this value are returned.
+        - for "max", only indices of elements equal to or above this value are returned.
+    include_equal
+        Only applicable if `threshold` is provided:
+        - If `True`, the returned indices will include those where the tensor value
+          is equal to the threshold.
+        - If `False`, only indices strictly below (for "min") or above (for "max")
+          the threshold are returned.
+    mask
+        Optional boolean mask to apply to the tensor.
+        If provided, only indices of elements where `mask` is `True` are returned.
+        The mask must have the same shape as the input `tensor`.
+    max_elements
+        Optional maximum number of indices to return.
+        If provided, the function will return at most this many indices.
+
+    Returns
+    -------
+    An array of shape `(n_elements, tensor.ndim)`
+    containing the sorted indices of the elements in the tensor.
+    """
+    # Validate mask shape
+    if mask is not None and mask.shape != tensor.shape:
+        raise ValueError(f"mask shape {mask.shape} does not match tensor shape {tensor.shape}")
+
+    # Flatten tensor and (optional) mask
+    flat = tensor.ravel()
+    flat_indices = jnp.arange(flat.size)
+    if mask is not None:
+        flat_mask = mask.ravel().astype(bool)
+    else:
+        flat_mask = jnp.ones(flat.shape, dtype=bool)
+
+    # Build threshold filter
+    if threshold is not None:
+        if first == "min":
+            comp = (flat <= threshold) if include_equal else (flat < threshold)
+        else:  # first == "max"
+            comp = (flat >= threshold) if include_equal else (flat > threshold)
+        valid = flat_mask & comp
+    else:
+        valid = flat_mask
+
+    # Gather valid indices and their values
+    valid_indices = flat_indices[valid]
+    valid_values = flat[valid]
+
+    # Sort by value
+    if first == "min":
+        order = jnp.argsort(valid_values)
+    else:  # first == "max"
+        order = jnp.argsort(-valid_values)
+
+    # Limit number of elements if requested
+    if max_elements is not None:
+        order = order[:max_elements]
+
+    selected_flat = valid_indices[order]
+
+    # Convert flat indices back to multi-dimensional indices
+    unravelled = jnp.stack(
+        jnp.unravel_index(selected_flat, tensor.shape),
+        axis=-1
+    )
+    return unravelled
 
 
 def is_equal(t1: Any, t2: Any) -> bool:
