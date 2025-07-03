@@ -200,8 +200,8 @@ def ensure_padding(
 ) -> tuple[JAXArray, list[tuple[int, int]]]:
     """Ensure padding around the minimal bounding box of non-pad values in array.
 
-    This function ensures exactly the requested planes of `pad_value`
-    around the minimal bounding box of all values that are not `pad_value`
+    This function ensures exactly the requested number of planes of `pad_value`
+    around the minimum axis-aligned bounding box of all values that are not `pad_value`
     along each given axis, cropping or padding with `pad_value` as needed.
 
     Parameters
@@ -358,6 +358,58 @@ def str_to_int_array(str_array, max_len: int | None = None):
     if input_is_string:
         return int_array.squeeze(axis=0)
     return int_array
+
+
+def make_batches(
+    tensor: Array,
+    axis: int = 0,
+    min_size: int = 50,
+    max_size: int = 2000,
+    grow_factor: float = 2.0,
+) -> list[Array]:
+    """Split a tensor into batches along a specified axis.
+
+    This function is useful for processing large tensors
+    in smaller chunks to avoid memory issues,
+    e.g., for training models or
+    performing computations that can be parallelized.
+
+    Parameters
+    ----------
+    tensor
+        Input tensor to be split into batches.
+    axis
+        Index of the axis along which to split the tensor into batches.
+    min_size
+        Minimum batch size.
+    max_size
+        Maximum batch size; batches will not exceed this many elements.
+        Too small values result in too many Python loops,
+        which can slow down the process,
+        while too large values can lead to large memory allocations,
+        which may also slow down or crash the process.
+    grow_factor
+        Factor by which the batch size grows.
+        The first batch will be of size `min_size`,
+        and subsequent batches will grow by this factor
+        (i.e. each batch will be ca. `grow_factor` times larger than the previous one)
+        until they reach `max_size`.
+
+    Returns
+    -------
+    Tensor batches along the specified axis.
+    """
+    if min_size is None:
+        return [tensor]
+    n_elements = tensor.shape[axis]
+    if n_elements <= min_size:
+        return [tensor]
+    split_indices = [min_size]
+    split_size = min_size
+    while n_elements - split_indices[-1] > max_size:
+        split_size = min(int(np.rint(split_size * grow_factor)), max_size)
+        split_indices.append(split_indices[-1] + split_size)
+    return np.array_split(tensor, indices_or_sections=split_indices, axis=axis)
 
 
 _argin_batch = jax.vmap(argin_single, in_axes=(0, None, None, None, None))
