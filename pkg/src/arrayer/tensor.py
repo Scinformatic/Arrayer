@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import operator
 from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
@@ -66,34 +67,32 @@ def indices_sorted_by_value(
     # Validate mask shape
     if mask is not None and mask.shape != tensor.shape:
         raise ValueError(f"mask shape {mask.shape} does not match tensor shape {tensor.shape}")
+    if first not in ("min", "max"):
+        raise ValueError(f"Invalid value for `first`: {first}. Must be 'min' or 'max'.")
 
     # Flatten tensor and (optional) mask
     flat = tensor.ravel()
     flat_indices = jnp.arange(flat.size)
-    if mask is not None:
-        flat_mask = mask.ravel().astype(bool)
-    else:
-        flat_mask = jnp.ones(flat.shape, dtype=bool)
+    flat_mask = mask.ravel().astype(bool) if mask is not None else jnp.ones(flat.shape, dtype=bool)
 
     # Build threshold filter
-    if threshold is not None:
-        if first == "min":
-            comp = (flat <= threshold) if include_equal else (flat < threshold)
-        else:  # first == "max"
-            comp = (flat >= threshold) if include_equal else (flat > threshold)
-        valid = flat_mask & comp
-    else:
+    if threshold is None:
         valid = flat_mask
+    else:
+        op = {
+            ("min", True): operator.le,
+            ("min", False): operator.lt,
+            ("max", True): operator.ge,
+            ("max", False): operator.gt,
+        }[(first, include_equal)]
+        valid = jnp.logical_and(flat_mask, op(flat, threshold))
 
     # Gather valid indices and their values
     valid_indices = flat_indices[valid]
     valid_values = flat[valid]
 
     # Sort by value
-    if first == "min":
-        order = jnp.argsort(valid_values)
-    else:  # first == "max"
-        order = jnp.argsort(-valid_values)
+    order = jnp.argsort(valid_values if first == "min" else -valid_values)
 
     # Limit number of elements if requested
     if max_elements is not None:
