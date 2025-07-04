@@ -144,3 +144,111 @@ argin:
         test_elements: *test_elements_2d
         batch_ndim: 2
       expected: [[[-1, -1], [0, 0], [0, 1]], [[0, 1], [1, 0], [1, 1]]]
+indices_sorted_by_value:
+  golden:
+    - case: simple_min_sort
+      input:
+        tensor: [3, 1, 2]
+      expected: [[1], [2], [0]]
+    - case: simple_max_sort
+      input:
+        tensor: [3, 1, 2]
+        first: "max"
+      expected: [[0], [2], [1]]
+    - case: threshold_min_include_equal
+      input:
+        tensor: [3, 1, 2]
+        threshold: 2
+        include_equal: true
+      expected: [[1], [2]]
+    - case: threshold_min_exclude_equal
+      input:
+        tensor: [3, 1, 2]
+        threshold: 2
+        include_equal: false
+      expected: [[1]]
+    - case: threshold_max_include_equal
+      input:
+        tensor: [3, 1, 2]
+        first: "max"
+        threshold: 2
+        include_equal: true
+      expected: [[0], [2]]
+    - case: threshold_max_exclude_equal
+      input:
+        tensor: [3, 1, 2]
+        first: "max"
+        threshold: 2
+        include_equal: false
+      expected: [[0]]
+    - case: mask_only_min
+      input:
+        tensor: [4, 2, 3, 1]
+        first: "min"
+        mask: [true, false, true, false]
+      expected: [[2], [0]]
+    - case: mask_and_max_elements_min
+      input:
+        tensor: [4, 2, 3, 1]
+        first: "min"
+        mask: [true, false, true, false]
+        max_elements: 1
+      expected: [[2]]
+    - case: two_dim_threshold_include_equal
+      input:
+        tensor:
+          - [5, 1]
+          - [3, 2]
+        first: "min"
+        threshold: 3
+        include_equal: true
+      expected:
+        - [0, 1]
+        - [1, 1]
+        - [1, 0]
+    - case: two_dim_mask_only_min
+      input:
+        tensor:
+          - [5, 1]
+          - [3, 2]
+        first: "min"
+        mask:
+          - [true, false]
+          - [true, true]
+      expected:
+        - [1, 1]
+        - [1, 0]
+        - [0, 0]
+    - case: max_elements_exceeds_valid
+      input:
+        tensor: [1, 2, 3]
+        first: "min"
+        mask: [true, false, true]
+        max_elements: 5
+      expected: [[0], [2]]
+    - case: no_valid_threshold
+      input:
+        tensor: [1, 2, 3]
+        first: "min"
+        threshold: 0
+        include_equal: true
+      expected: []
+    - case: mask_excludes_all
+      input:
+        tensor: [1, 2, 3]
+        first: "max"
+        mask: [false, false, false]
+      expected: []
+    - case: scalar_tensor
+      input:
+        tensor:
+          - [7]
+        first: "min"
+      expected:
+        - [0, 0]
+    - case: max_elements_zero
+      input:
+        tensor: [10, 20, 30]
+        first: "min"
+        max_elements: 0
+      expected: []
