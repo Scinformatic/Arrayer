@@ -23,7 +23,7 @@ __all__ = [
     "argin_batch",
 ]
 
-
+# @jax.jit(static_argnums=(1, 2, 3, 5))
 def indices_sorted_by_value(
     tensor: Array,
     first: Literal["min", "max"] = "min",
@@ -37,7 +37,7 @@ def indices_sorted_by_value(
     Parameters
     ----------
     tensor
-        Input tensor to find element indices in.
+        Input tensor.
     first
         - "min": Sort indices from smallest to largest values.
         - "max": Sort indices from largest to smallest values.
@@ -64,48 +64,55 @@ def indices_sorted_by_value(
     An array of shape `(n_elements, tensor.ndim)`
     containing the sorted indices of the elements in the tensor.
     """
-    # Validate mask shape
-    if mask is not None and mask.shape != tensor.shape:
-        raise ValueError(f"mask shape {mask.shape} does not match tensor shape {tensor.shape}")
+    tensor = jnp.asarray(tensor)
+
+    # Validate inputs
+    if mask is not None:
+        mask = jnp.asarray(mask).astype(bool)
+        if mask.shape != tensor.shape:
+            raise ValueError(f"mask shape {mask.shape} does not match tensor shape {tensor.shape}")
     if first not in ("min", "max"):
         raise ValueError(f"Invalid value for `first`: {first}. Must be 'min' or 'max'.")
+    if max_elements is not None and max_elements < 0:
+        raise ValueError(f"max_elements must be non-negative, got {max_elements}.")
 
     # Flatten tensor and (optional) mask
-    flat = tensor.ravel()
-    flat_indices = jnp.arange(flat.size)
-    flat_mask = mask.ravel().astype(bool) if mask is not None else jnp.ones(flat.shape, dtype=bool)
+    tensor_flat = tensor.ravel()
+    n_elements = tensor_flat.size
+    mask_flat = jnp.ones(n_elements, dtype=bool) if mask is None else mask.ravel()
 
-    # Build threshold filter
-    if threshold is None:
-        valid = flat_mask
-    else:
-        op = {
-            ("min", True): operator.le,
-            ("min", False): operator.lt,
-            ("max", True): operator.ge,
-            ("max", False): operator.gt,
-        }[(first, include_equal)]
-        valid = jnp.logical_and(flat_mask, op(flat, threshold))
-
-    # Gather valid indices and their values
-    valid_indices = flat_indices[valid]
-    valid_values = flat[valid]
+    # Add threshold filter to mask if provided
+    if threshold is not None:
+        if first == "min":
+            mask_threshold = (
+                (tensor_flat <= threshold)
+                if include_equal else
+                (tensor_flat < threshold)
+            )
+        else:
+            mask_threshold = (
+                (tensor_flat >= threshold)
+                if include_equal else
+                (tensor_flat > threshold)
+            )
+        mask_flat = jnp.logical_and(mask_flat, mask_threshold)
 
     # Sort by value
-    order = jnp.argsort(valid_values if first == "min" else -valid_values)
+    valid_values = tensor_flat[mask_flat]
+    n_valid_elements = valid_values.size
+    values_to_sort = valid_values if first == "min" else -valid_values
+    if max_elements is None or max_elements >= n_elements:
+        order = jnp.argsort(values_to_sort)
+    else:
+        part = jnp.argpartition(values_to_sort, max_elements)
+        topk = part[:max_elements]
+        order = topk[jnp.argsort(values_to_sort[topk])]
 
-    # Limit number of elements if requested
-    if max_elements is not None:
-        order = order[:max_elements]
-
-    selected_flat = valid_indices[order]
+    valid_indices = jnp.arange(n_elements)[mask_flat]
+    sorted_indices = valid_indices[order]
 
     # Convert flat indices back to multi-dimensional indices
-    unravelled = jnp.stack(
-        jnp.unravel_index(selected_flat, tensor.shape),
-        axis=-1
-    )
-    return unravelled
+    return jnp.stack(jnp.unravel_index(sorted_indices, tensor.shape), axis=-1)
 
 
 def is_equal(t1: Any, t2: Any) -> bool:
