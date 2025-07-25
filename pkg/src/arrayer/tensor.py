@@ -135,6 +135,54 @@ def is_equal(t1: Any, t2: Any) -> bool:
     return t1 == t2
 
 
+def pairwise_allclose(
+    array: np.ndarray,
+    tolerance: float | None = None,
+    epsilon_factor: float = 1,
+) -> bool:
+    """Check whether all elements of `array` lie within a given tolerance of each other.
+
+    In other words, check if `max(array) - min(array) <= tolerance`.
+    If `tolerance` is not provided:
+    - For integer arrays, requires exact equality (i.e. `tolerance = 0`).
+    - For floating-point arrays, calculates the tolerance as
+      `epsilon_factor * epsilon * max(|max(array)|, |min(array)|, 1.0)`
+      where `epsilon` is the machine-precision epsilon for `array.dtype`.
+
+    Parameters
+    ----------
+    array
+        Input array to check.
+    tolerance
+        Optional absolute tolerance.
+        If not provided, the tolerance is calculated
+        based on the array's dtype.
+    epsilon_factor
+        Factor to multiply the machine epsilon by
+        when calculating the tolerance for floating-point arrays.
+
+    Returns
+    -------
+    Boolean indicating whether all elements
+    are within the specified tolerance of each other.
+    """
+    array = np.asarray(array)
+    if array.size == 0:
+        return True
+    max_val = array.max()
+    min_val = array.min()
+    span = max_val - min_val
+    if tolerance is None:
+        # no user tolerance → auto for floats, exact for ints
+        if not issubclass(array.dtype.type, np.inexact):
+            # integer (or exact) types must match exactly
+            return bool(span == 0)
+        eps = np.finfo(array.dtype).eps
+        scale = max(abs(max_val), abs(min_val), 1.0)
+        tolerance = epsilon_factor * eps * scale
+    return span <= tolerance
+
+
 def argin(
     element: Array,
     test_elements: Array,
@@ -505,3 +553,58 @@ def make_batches(
 
 
 _argin_batch = jax.vmap(argin_single, in_axes=(0, None, None, None, None))
+
+
+
+
+# Not ready functions, to be implemented later
+
+def _filter_array(
+    array: np.ndarray,
+    minmax_vals: tuple[float, float],
+    reduction_op: str,
+    reduction_axis: int = -1,
+    invert: bool = False,
+) -> np.ndarray:
+    """
+    Filter points by their distances to their nearest atoms.
+
+    Parameters
+    ----------
+    array
+    dist_range : tuple[float, float]
+        Lower and upper bounds of distance to the nearest atom.
+    invert : bool, optional, default: False
+        If False (default), the points whose nearest atoms lie within the distance range are
+        returned. If True, the points whose nearest atoms lie outside the range are returned.
+
+    Returns
+    -------
+    boolean_mask : ndarray
+    """
+    red_funcs_pre = {"max": np.max, "min": np.min, "avg": np.mean, "sum": np.sum}
+    red_funcs_post = {"all": np.all, "any": np.any, "one": np.logical_xor.reduce}
+
+    if reduction_op in red_funcs_pre:
+        array_values = red_funcs_pre[reduction_op](array, axis=reduction_axis)
+        array_mask = filter_array_by_range(
+            array=array_values, minmax_vals=minmax_vals, invert=invert
+        )
+        return array_mask, (array_values.min(), array_values.max())
+    if reduction_op in red_funcs_post:
+        mask_array = filter_array_by_range(array=array, minmax_vals=minmax_vals, invert=invert)
+        reduced_mask_array = red_funcs_post[reduction_op](mask_array, axis=reduction_axis)
+        return reduced_mask_array, (array.min(), array().max())
+    raise ValueError("Reduction operation not recognized.")
+
+
+def _filter_array_by_range(
+    array: np.ndarray, minmax_vals: tuple[float, float], invert: bool = False
+):
+    op_lower, op_upper = (operator.le, operator.ge) if invert else (operator.ge, operator.le)
+    op_combine = np.logical_or if invert else np.logical_and
+    mask = op_combine(
+        op_lower(array, minmax_vals[0]),
+        op_upper(array, minmax_vals[1]),
+    )
+    return mask
